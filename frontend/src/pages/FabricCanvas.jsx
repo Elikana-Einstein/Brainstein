@@ -1,50 +1,109 @@
-import React from 'react'
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import * as fabric from 'fabric';
+import useStore from '../zustand/store';
 
-const FabricCanvas = (canvasRef,options) => {
+const useFabricCanvas = (canvasRef, options) => {
+  const { undoTrigger, redoTrigger } = useStore();
   const fabricRef = useRef(null);
-    useEffect(()=>{
-        if (!canvasRef.current) return;
+  const historyRef = useRef([]); // Stack of JSON states
+  const redoRef = useRef([]);
+  const isRestoringRef = useRef(false);
 
-    // Create Fabric instance
+  // Helper to capture current state
+  const saveState = useCallback(() => {
+    if (isRestoringRef.current || !fabricRef.current) return;
+    
+    const json = fabricRef.current.toObject();
+    historyRef.current.push(json);
+    
+    // Limit history size to prevent memory leaks (e.g., last 50 actions)
+    if (historyRef.current.length > 50) historyRef.current.shift();
+    
+    redoRef.current = []; 
+  }, []);
+
+  // 1. Initialize Canvas
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
     const canvas = new fabric.Canvas(canvasRef.current, {
-      width: options.width,
-      height: options.height,
+      width: options.width || 800,
+      height: options.height || 600,
       backgroundColor: '#ffffff',
-      isDrawingMode: true
+      isDrawingMode: true,
     });
 
-    // Setup brush
     canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-    canvas.freeDrawingBrush.color = options.brushColor;
-    canvas.freeDrawingBrush.width = options.brushWidth;
-
-
-    // Optional: disable object selection
-    canvas.selection = false;
-    canvas.skipTargetFind = true;
-
     fabricRef.current = canvas;
 
-     // Cleanup
+    // Initial State
+    historyRef.current = [canvas.toObject()];
+
+    // Event Listeners
+    canvas.on('path:created', saveState);
+    canvas.on('object:modified', saveState);
+    canvas.on('object:removed', saveState);
+
     return () => {
       canvas.dispose();
     };
-    },[]);
-    // Update brush dynamically
-    useEffect(() => {
-      if (!fabricRef.current) return;
-      fabricRef.current.freeDrawingBrush.color = options.brushColor;
-    }, [options.brushColor]);  
+  }, [canvasRef]); // Stability is key here
 
-    useEffect(() => {
-      if (!fabricRef.current) return;
-      fabricRef.current.freeDrawingBrush.width = options.brushWidth;
-    }, [options.brushWidth]);    
+  // 2. Undo Logic
+  const undo = useCallback(async () => {
+    // We need at least 2 items: [initialState, firstAction]
+    if (historyRef.current.length <= 1 || isRestoringRef.current) return;
 
-return  fabricRef;
-  
-}
+    isRestoringRef.current = true;
+    const canvas = fabricRef.current;
 
-export default FabricCanvas
+    // Move current state to redo stack
+    const currentState = historyRef.current.pop();
+    redoRef.current.push(currentState);
+
+    // Get the state we want to go back to
+    const previousState = historyRef.current[historyRef.current.length - 1];
+
+    try {
+      await canvas.loadFromJSON(previousState);
+      canvas.renderAll();
+    } finally {
+      isRestoringRef.current = false;
+    }
+  }, []);
+
+  // 3. Redo Logic
+  const redo = useCallback(async () => {
+    if (redoRef.current.length === 0 || isRestoringRef.current) return;
+
+    isRestoringRef.current = true;
+    const canvas = fabricRef.current;
+
+    const nextState = redoRef.current.pop();
+    historyRef.current.push(nextState);
+
+    try {
+      await canvas.loadFromJSON(nextState);
+      canvas.renderAll();
+    } finally {
+      isRestoringRef.current = false;
+    }
+  }, []);
+
+  // 4. Store Trigger Listeners
+  useEffect(() => { if (undoTrigger > 0) undo(); }, [undoTrigger, undo]);
+  useEffect(() => { if (redoTrigger > 0) redo(); }, [redoTrigger, redo]);
+
+  // 5. Tool updates
+  useEffect(() => {
+    const canvas = fabricRef.current;
+    if (canvas && canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = options.brushColor || '#000000';
+      canvas.freeDrawingBrush.width = options.brushWidth || 5;
+    }
+  }, [options.brushColor, options.brushWidth]);
+
+  return fabricRef;
+};
+
+export default useFabricCanvas;

@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import {Mic,Video,Undo2,Redo2,MicOffIcon,VideoOffIcon,MessageSquare} from 'lucide-react'
 import useStore from '../zustand/store'
+import { audioManager } from '../utilities/Audio'
+
 const Navbar = () => {
   
   const [open, SetOpen] = useState(1) // default width in px (will scale with multiplier)
@@ -20,8 +22,49 @@ const Navbar = () => {
   // Width presets (in pixels, but we'll use a visual multiplier)
   const widthOptions = [2,3,4,5]
 
-  const {openChat,changeBrWidth,changeBrColor,b_color,b_width}=useStore();
+  const {openChat,changeBrWidth,changeBrColor,b_color,b_width,triggerRedo,triggerUndo,addChatMessage}=useStore();
+// Inside your component
+const socketRef = useRef(null); // 1. Create the container
 
+useEffect(() => {
+    // 2. Assign the connection to the Ref
+    const ws = new WebSocket('ws://localhost:5000/audio');
+    
+    ws.onopen = () => {
+        console.log("🚀 Connected to Flask WebSocket");
+        socketRef.current = ws; 
+    };
+   ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    addChatMessage(data);
+    // 1. Update your UI with the transcript
+    //setChatHistory(prev => [...prev, { role: 'user', text: data.user }, { role: 'ai', text: data.ai }]);
+//
+    //// 2. Speak the AI's response
+    //const utterance = new SpeechSynthesisUtterance(data.ai);
+    //window.speechSynthesis.speak(utterance);
+    }
+
+    return () => {
+        if (ws.readyState === WebSocket.OPEN) ws.close();
+    };
+}, []);
+
+const toggleMic = async (micStatus) => {
+    if (micStatus) {
+        // 3. Pass the current value of the Ref
+        if (socketRef.current) {
+            await audioManager.turnMicOn(socketRef.current); 
+        } else {
+            console.error("WebSocket not connected yet!");
+        }
+    } else {
+        audioManager.turnMicOff();
+    }
+};
+useEffect(()=>{
+  toggleMic(micOn);
+},[micOn])
   return (
     <div>
         {open ?
@@ -34,7 +77,7 @@ const Navbar = () => {
             </button>
         <div className='pt-10 flex flex-col pl-1 pr-1 gap-y-8'>
             <button onClick={()=>setMicon(!micOn)}>
-                {micOn? <Mic  size={24}/> : <MicOffIcon  size={24}/>}
+                {micOn?  <Mic  size={24}/> : <MicOffIcon  size={24}/>}
             </button>
             <button onClick={()=>setVideoon(!videoOn)}>
                 {videoOn? <Video  size={24}/> : <VideoOffIcon  size={24}/>}
@@ -43,11 +86,11 @@ const Navbar = () => {
                 <MessageSquare  size={24}/> 
             </button>
             <button>
-                <Undo2  size={24}/>
+                <Undo2 onClick={triggerUndo} size={24}/>
 
             </button>
             <button>
-                <Redo2  size={24}/>
+                <Redo2 onClick={triggerRedo} size={24}/>
 
             </button>
         </div>
@@ -146,7 +189,7 @@ const Navbar = () => {
       {/* Extra polish: current values summary */}
       <div className="mt-auto pt-6 text-xs text-gray-400 flex justify-between items-center border-t border-gray-100">
         <span>✨ click any color or width</span>
-        <span className="font-mono bg-gray-100 px-2 py-1 rounded-full">
+        <span className="font-mono text-white px-2 py-1 rounded-full" style={{backgroundColor:b_color}}>
           {colorOptions.find(c => c.value === b_color)?.name || 'Custom'}
         </span>
       </div>

@@ -556,7 +556,7 @@ const RealtimeAIWhiteboard = ({
           await new Promise(r => setTimeout(r, 200));
         }
       }
-      
+        
       // CLEAR()
       if (line.includes('CLEAR()')) {
         fabricCanvasRef.current.clear();
