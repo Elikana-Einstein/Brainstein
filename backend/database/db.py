@@ -1,11 +1,12 @@
 import os
-from main import url
+from ai_workload.settings import url
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
 
 # Create a new client and connect to the server
 client = MongoClient(url, server_api=ServerApi('1'))
+db = client['mydatabase']
 
 # Send a ping to confirm a successful connection
 try:
