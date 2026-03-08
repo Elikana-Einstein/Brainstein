@@ -45,7 +45,7 @@ const formatSize = (bytes) => {
 }
 
 const Chat = () => {
-    const { chatopen, openChat, inputMessage, setInputMessage, addChatMessage } = useStore()
+    const { chatopen, openChat, inputMessage, setInputMessage, addChatMessage,ws } = useStore()
 
     // Whether we're waiting for the AI to respond
     const [loading, setLoading] = useState(false)
@@ -111,6 +111,7 @@ const Chat = () => {
     const handleSend = async () => {
         const text = inputMessage.trim()
         if ((!text && !attachedFile) || loading) return
+        ws.send(text)
 
         // If a file is attached, prefix the message with the filename
         const userMsg = attachedFile
@@ -128,13 +129,13 @@ const Chat = () => {
         abortControllerRef.current = new AbortController()
 
         try {
-            const res = await fetch('http://localhost:5000/chat', {
+           /* const res = await fetch('http://localhost:5000/gemini', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: text || attachedFile?.name }),
                 signal: abortControllerRef.current.signal,
-            })
-            const data = await res.json()
+            })*/
+           // const data = await res.json()
 
             // Replace the "..." placeholder with the real AI response
             useStore.setState((s) => {

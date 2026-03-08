@@ -62,10 +62,6 @@ def voice():
         return jsonify({"error": str(e)}), 500
 
 
-@sock.route('/audio')
-def handle_audio(ws):
-    api_handle_audio(ws)
-
 
 @sock.route('/db/get')
 def get_chat(ws):
@@ -76,11 +72,15 @@ def get_chat(ws):
     except Exception as e:
         ws.send(json.dumps({"status": "error", "message": str(e)}))
 
-
 @sock.route('/gemini')
-def handle_live_with_gemini(ws):
-    live_conversation_with_gemini(ws)
-
+def handle_gemini(ws):
+    print("WebSocket connection established!")
+    while True:
+        data = ws.receive()
+        print(f"Received: {data}")
+        # Your logic here:
+        # response = live_conversation_with_gemini(data)
+        ws.send(f"Echo: {data}")
 
 if __name__ == '__main__':
     app.run(port=5000, debug=False)

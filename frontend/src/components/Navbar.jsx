@@ -22,14 +22,14 @@ const Navbar = () => {
   const {
     openChat, changeBrWidth, changeBrColor,
     b_color, b_width, triggerRedo, triggerUndo,
-    addChatMessage, fabricCanvasRef
+    addChatMessage, fabricCanvasRef,ws
   } = useStore()
 
-  // WebSocket 1: Groq voice transcription 
+  // WebSocket 1: Gemini voice transcription 
   const GeminiSocketRef = useRef(null)
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:5000/audio')
+    const ws = new WebSocket('http://localhost:5000/gemini')
     ws.onopen = () => {
       console.log('Gemini WebSocket connected')
       GeminiSocketRef.current = ws
@@ -38,7 +38,7 @@ const Navbar = () => {
       const data = JSON.parse(event.data)
       addChatMessage(data)
     }
-    ws.onerror = (e) => console.error('Groq WS error', e)
+    ws.onerror = (e) => console.error('Gemini WS error', e)
     return () => { if (ws.readyState === WebSocket.OPEN) ws.close() }
   }, [])
 
@@ -49,7 +49,6 @@ const Navbar = () => {
   const isPlayingRef = useRef(false)
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:5000/gemini')
     //so basically these runs at the console
     ws.onopen = () => {
       console.log('Gemini WebSocket connected')
@@ -159,6 +158,17 @@ const Navbar = () => {
   }
 
   useEffect(() => { toggleMic(micOn) }, [micOn])
+  useEffect(()=>{
+    if(videoOn){
+      startCanvasStream()
+      console.log(123);
+      
+    }else{
+      stopCanvasStream()
+      console.log(2456);
+      
+    }
+  },[videoOn])
 
   return (
     <div>

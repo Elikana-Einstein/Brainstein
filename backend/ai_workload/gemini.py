@@ -57,15 +57,9 @@ def live_conversation_with_gemini(ws):
                                     audio_b64 = base64.b64encode(
                                         part.inline_data.data
                                     ).decode('utf-8')
-                                    ws.send(json.dumps({
-                                        "type": "audio",
-                                        "data": audio_b64
-                                    }))
+                                    return audio_b64
                                 if part.text:
-                                    ws.send(json.dumps({
-                                        "type": "ai_transcript",
-                                        "text": part.text
-                                    }))
+                                   return  part.text
 
                         # Interrupted---- tell React to stop playing audio
                         if sc.interrupted:

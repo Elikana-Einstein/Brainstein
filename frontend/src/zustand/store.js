@@ -6,6 +6,7 @@ const useStore = create((set) => ({
   b_width: 3,
   changeBrColor: (color) => set({ b_color: color }),
   changeBrWidth: (width) => set({ b_width: width }),
+  ws : new WebSocket('http://localhost:5000/gemini'),
 
   // Undo / Redo triggers
   undoTrigger: 0,
