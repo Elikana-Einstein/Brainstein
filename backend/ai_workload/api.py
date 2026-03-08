@@ -5,11 +5,11 @@ from .grog import get_ai_response
 
 
 def api_handle_audio(ws):
-    # ✅ FIX: audio_buffer is now LOCAL to each WebSocket connection
+    #  audio_buffer fixed and is now LOCAL to each WebSocket connection
     # Previously it was a shared global — two users would corrupt each other's audio
     audio_buffer = []
     silence_counter = 0
-    print("🚀 Listener Active")
+    print("Listener Active")
 
     while True:
         data = ws.receive()
