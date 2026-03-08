@@ -111,7 +111,7 @@ const Chat = () => {
     const handleSend = async () => {
         const text = inputMessage.trim()
         if ((!text && !attachedFile) || loading) return
-        ws.send({"text":text})
+      ws.send(JSON.stringify({"text": text}));
 
         // If a file is attached, prefix the message with the filename
         const userMsg = attachedFile

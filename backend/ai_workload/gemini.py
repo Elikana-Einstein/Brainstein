@@ -16,41 +16,57 @@ async def live_conversation_with_gemini(ws, first_message):
     )
 
     async with client2.aio.live.connect(model=MODEL_ID, config=config) as session:
-        
+
         async def send_to_gemini():
-            # Process the message that just came in
             message_data = first_message
             try:
                 while True:
                     data = json.loads(message_data)
-                    
+
                     if "audio" in data:
-                        await session.send(
-                            input=base64.b64decode(data["audio"]),
-                            end_of_turn=False
+                        # Use send_realtime_input for raw audio bytes
+                        await session.send_realtime_input(
+                            audio=types.Blob(
+                                data=base64.b64decode(data["audio"]),
+                                mime_type="audio/pcm;rate=16000"
+                            )
                         )
 
                     if "image" in data:
-                        await session.send(
-                            input=types.Part(
-                                inline_data=types.Blob(
-                                    mime_type="image/jpeg",
-                                    data=base64.b64decode(data["image"])
-                                )
-                            )
+                        print("Sending canvas frame to Gemini...")
+                        # Use send_client_content with dict-based turns for images
+                        await session.send_client_content(
+                            turns={
+                                "role": "user",
+                                "parts": [
+                                    {
+                                        "inline_data": {
+                                            "mime_type": "image/jpeg",
+                                            "data": data["image"]  # already base64 string
+                                        }
+                                    }
+                                ]
+                            },
+                            turn_complete=True
                         )
-                    
-                    await session.send(input= message_data,end_of_turn = True)
-                    
-                    # Wait for the next message from the client via the websocket
+
+                    if "text" in data:
+                        await session.send_client_content(
+                            turns={
+                                "role": "user",
+                                "parts": [{"text": data["text"]}]
+                            },
+                            turn_complete=True
+                        )
+
+                    # Wait for the next message from the client
                     message_data = await ws.receive_text()
+
             except Exception as e:
                 print(f"send_to_gemini error: {e}")
 
         async def receive_from_gemini():
-            print(0)
             try:
-                print(10)
                 async for response in session.receive():
                     sc = response.server_content
                     if not sc:
@@ -60,11 +76,15 @@ async def live_conversation_with_gemini(ws, first_message):
                         for part in sc.model_turn.parts:
                             if part.inline_data:
                                 audio_b64 = base64.b64encode(part.inline_data.data).decode('utf-8')
-                                # Send directly to the frontend
                                 await ws.send_json({"audio": audio_b64})
                             if part.text:
                                 await ws.send_json({"text": part.text})
-                                print(1234,part.text)
+                                print(f"Gemini text: {part.text}")
+
+                    if sc.output_transcription:
+                        transcript = sc.output_transcription.text
+                        if transcript:
+                            await ws.send_json({"transcript": transcript})
 
                     if sc.interrupted:
                         await ws.send_json({"control": "stop_audio"})

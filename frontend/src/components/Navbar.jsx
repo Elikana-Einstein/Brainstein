@@ -22,75 +22,76 @@ const Navbar = () => {
   const {
     openChat, changeBrWidth, changeBrColor,
     b_color, b_width, triggerRedo, triggerUndo,
-    addChatMessage, fabricCanvasRef,ws
+    addChatMessage, fabricCanvasRef
   } = useStore()
 
-  // WebSocket 1: Gemini voice transcription 
-  const GeminiSocketRef = useRef(null)
-
-  useEffect(() => {
-    const ws = new WebSocket('http://localhost:5000/gemini')
-    ws.onopen = () => {
-      console.log('Gemini WebSocket connected')
-      GeminiSocketRef.current = ws
-    }
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      addChatMessage(data)
-    }
-    ws.onerror = (e) => console.error('Gemini WS error', e)
-    return () => { if (ws.readyState === WebSocket.OPEN) ws.close() }
-  }, [])
-
-  // WebSocket 2: Gemini Live (AI sees canvas + talks back) 
   const geminiSocketRef = useRef(null)
   const canvasIntervalRef = useRef(null)
   const audioQueueRef = useRef([])
   const isPlayingRef = useRef(false)
+  const audioCtxRef = useRef(null)
 
+  // Connect to Gemini Live WebSocket
   useEffect(() => {
-    //so basically these runs at the console
-    ws.onopen = () => {
-      console.log('Gemini WebSocket connected')
-      geminiSocketRef.current = ws
+    const socket = new WebSocket('ws://localhost:5000/gemini')
+socket.binaryType = 'arraybuffer';
+    socket.onopen = () => {
+      console.log('Gemini Live WebSocket connected')
+      geminiSocketRef.current = socket
       setGeminiReady(true)
+      // Send initial handshake so backend has a first_message
+      socket.send(JSON.stringify({ init: true }))
     }
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
 
-      // AI is speaking — play audio
-      if (data.type === 'audio') {
-        audioQueueRef.current.push(data.data)
-        if (!isPlayingRef.current) playNextAudio()
-      }
+        if (data.audio) {
+          audioQueueRef.current.push(data.audio)
+          if (!isPlayingRef.current) playNextAudio()
+        }
 
-      // Show AI transcript in chat
-      if (data.type === 'ai_transcript' && data.text) {
-        addChatMessage({ user: '', ai: data.text })
-      }
+        if (data.text) {
+          addChatMessage({ user: '', ai: data.text })
+        }
 
-      // Show user transcript in chat
-      if (data.type === 'user_transcript' && data.text) {
-        addChatMessage({ user: data.text, ai: '' })
-      }
+        if (data.transcript) {
+          addChatMessage({ user: '', ai: `🎙️ ${data.transcript}` })
+        }
 
-      // Stop audio if Gemini was interrupted
-      if (data.control === 'stop_audio') {
-        audioQueueRef.current = []
-        isPlayingRef.current = false
+        if (data.control === 'stop_audio') {
+          audioQueueRef.current = []
+          isPlayingRef.current = false
+        }
+      } catch (e) {
+        console.error('Failed to parse Gemini message', e)
       }
     }
 
-    ws.onerror = (e) => console.error('Gemini WS error', e)
+    socket.onerror = (e) => console.error('Gemini WS error', e)
+    socket.onclose = () => {
+      console.log('Gemini WS closed')
+      setGeminiReady(false)
+    }
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) ws.close()
+      if (socket.readyState === WebSocket.OPEN) socket.close()
       clearInterval(canvasIntervalRef.current)
     }
   }, [])
 
-  //  Play AI audio response 
+  // Ensure AudioContext is created/resumed after a user gesture
+  const ensureAudioContext = () => {
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      audioCtxRef.current = new AudioContext({ sampleRate: 24000 })
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume()
+    }
+  }
+
+  // Play AI audio response (reuses single AudioContext)
   const playNextAudio = async () => {
     if (audioQueueRef.current.length === 0) {
       isPlayingRef.current = false
@@ -103,17 +104,25 @@ const Navbar = () => {
       const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
 
-      const audioCtx = new AudioContext({ sampleRate: 24000 })
-      const buffer = audioCtx.createBuffer(1, bytes.length / 2, 24000)
-      const channelData = buffer.getChannelData(0)
+      const ctx = audioCtxRef.current
+      if (!ctx || ctx.state === 'closed') {
+        // AudioContext not ready yet, re-queue and wait
+        audioQueueRef.current.unshift(b64)
+        isPlayingRef.current = false
+        return
+      }
+
       const int16 = new Int16Array(bytes.buffer)
+      const buffer = ctx.createBuffer(1, int16.length, 24000)
+      const channelData = buffer.getChannelData(0)
       for (let i = 0; i < int16.length; i++) {
         channelData[i] = int16[i] / 32768
       }
-      const source = audioCtx.createBufferSource()
+
+      const source = ctx.createBufferSource()
       source.buffer = buffer
-      source.connect(audioCtx.destination)
-      source.onended = () => { audioCtx.close(); playNextAudio() }
+      source.connect(ctx.destination)
+      source.onended = () => playNextAudio()
       source.start()
     } catch (e) {
       console.error('Audio playback error', e)
@@ -121,57 +130,56 @@ const Navbar = () => {
     }
   }
 
-  //  Send canvas snapshot to Gemini every 3 seconds 
+  // Send canvas snapshot every 3 seconds
   const startCanvasStream = () => {
+    if (canvasIntervalRef.current) return
     canvasIntervalRef.current = setInterval(() => {
       const ws = geminiSocketRef.current
       const canvas = fabricCanvasRef
-
       if (!ws || ws.readyState !== WebSocket.OPEN || !canvas) return
-
       try {
-        // Get canvas as JPEG base64 (smaller than PNG)
         const imageB64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1]
         ws.send(JSON.stringify({ image: imageB64 }))
       } catch (e) {
         console.error('Canvas snapshot error', e)
       }
-    }, 3000) // every 3 seconds
+    }, 3000)
   }
 
   const stopCanvasStream = () => {
     clearInterval(canvasIntervalRef.current)
+    canvasIntervalRef.current = null
   }
 
-  //  Mic toggle 
+  // Mic toggle
   const toggleMic = async (micStatus) => {
+    ensureAudioContext() // Must be called on user gesture
     if (micStatus) {
-      // Send audio to BOTH Groq (transcription) and Gemini (live conversation)
-      if (GeminiSocketRef.current) {
-        await audioManager.turnMicOn(GeminiSocketRef.current)
+      const ws = geminiSocketRef.current
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        await audioManager.turnMicOn(ws)
       }
-      startCanvasStream() // start sending canvas when mic is on
+      //startCanvasStream()
     } else {
       audioManager.turnMicOff()
-      stopCanvasStream()
+      //stopCanvasStream()
     }
   }
 
   useEffect(() => { toggleMic(micOn) }, [micOn])
-  useEffect(()=>{
-    if(videoOn){
+
+  useEffect(() => {
+    if (videoOn) {
+      ensureAudioContext()
       startCanvasStream()
-      
-    }else{
+    } else {
       stopCanvasStream()
-      
     }
-  },[videoOn])
+  }, [videoOn])
 
   return (
     <div>
       {open ? (
-        // Collapsed navbar 
         <div className="fixed top-4 left-2 h-screen w-8 bg-gray-200 backdrop-blur-md shadow-xl border border-white/20 z-10">
           <button className='flex flex-col p-2 gap-1' onClick={() => SetOpen(0)}>
             <div className='w-4 h-1 bg-gray-800'></div>
@@ -180,7 +188,6 @@ const Navbar = () => {
           </button>
 
           <div className='pt-10 flex flex-col pl-1 pr-1 gap-y-8'>
-            {/* Mic — glows green when on */}
             <button
               onClick={() => setMicOn(!micOn)}
               className={`rounded-full p-1 transition-all ${micOn ? 'bg-green-400 shadow-lg shadow-green-300' : ''}`}
@@ -188,7 +195,7 @@ const Navbar = () => {
               {micOn ? <Mic size={24} /> : <MicOffIcon size={24} />}
             </button>
 
-            <button onClick={() => setVideoOn(!videoOn)}>
+            <button onClick={() => { setVideoOn(!videoOn) }}>
               {videoOn ? <Video size={24} /> : <VideoOffIcon size={24} />}
             </button>
 
@@ -200,12 +207,12 @@ const Navbar = () => {
             <button><Redo2 onClick={triggerRedo} size={24} /></button>
           </div>
 
-          {/* Gemini status indicator */}
-          <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full ${geminiReady ? 'bg-green-400' : 'bg-red-400'}`}
-            title={geminiReady ? 'Gemini connected' : 'Gemini disconnected'} />
+          <div
+            className={`absolute bottom-8 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full ${geminiReady ? 'bg-green-400' : 'bg-red-400'}`}
+            title={geminiReady ? 'Gemini connected' : 'Gemini disconnected'}
+          />
         </div>
       ) : (
-        // ── Expanded brush panel 
         <div className="fixed top-4 left-0 h-[calc(100vh-2rem)] w-72 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 flex flex-col z-10">
           <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
             <div className="w-6 h-6 rounded-full shadow-md transition-all duration-300" style={{ backgroundColor: b_color }} />

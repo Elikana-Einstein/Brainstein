@@ -14,18 +14,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
 @app.websocket("/gemini")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
-        # Wait for the very first message to kick off the session
-        initial_data = await websocket.receive_text()
-        print(initial_data)
-        # Call the async function directly (no asyncio.run!)
-        #await live_conversation_with_gemini(websocket, initial_data)
-        
-    except WebSocketDisconnect:
-        print("Client disconnected")
+        # Safely receive first message regardless of frame type
+        message = await websocket.receive()
+        if message["type"] == "websocket.disconnect":
+            return
+        # Handle both text and bytes
+        initial_data = message.get("text") or message.get("bytes", b"").decode("utf-8")
+        await live_conversation_with_gemini(websocket, initial_data)
+    except Exception as e:
+        print(f"websocket_endpoint error: {e}")
 
 if __name__ == "__main__":
     # Equivalent to app.run(port=5000)
