@@ -3,7 +3,7 @@ from flask_sock import Sock
 from flask_cors import CORS
 from ai_workload.api import api_handle_audio
 from ai_workload.gemini import live_conversation_with_gemini
-from ai_workload.grog import get_text_ai_response, get_ai_response_from_file
+#from ai_workload.grog import get_text_ai_response, get_ai_response_from_file
 import json
 import io
 
@@ -20,7 +20,7 @@ def chat():
         if not user_text:
             return jsonify({"error": "Empty message"}), 400
 
-        ai_text = get_text_ai_response(user_text)
+        ai_text = live_conversation_with_gemini(user_text)
 
         try:
             from ai_workload.database.collections import chat_collection
@@ -44,7 +44,7 @@ def voice():
             return jsonify({"error": "No audio file"}), 400
 
         audio_bytes = audio_file.read()
-        user_text, ai_text = get_ai_response_from_file(audio_bytes)
+        user_text, ai_text = live_conversation_with_gemini(audio_bytes)
 
         if not user_text:
             return jsonify({"error": "Could not transcribe audio"}), 400
