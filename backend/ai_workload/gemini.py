@@ -7,7 +7,7 @@ from google.genai import types
 
 def live_conversation_with_gemini(ws):
     async def run_session():
-        # ✅ FIX: Updated config to match current google-genai API
+        # this fixes the Updated config to match current google-genai API
         config = types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             system_instruction="You are a drawing coach. You can see the user's canvas. Guide them verbally and collaborate on their drawing ideas."
@@ -39,7 +39,7 @@ def live_conversation_with_gemini(ws):
                                 )
                             )
                     except Exception as e:
-                        print(f"⚠️ send_to_gemini error: {e}")
+                        print(f"send_to_gemini error: {e}")
                         break
 
             async def receive_from_gemini():
@@ -67,12 +67,12 @@ def live_conversation_with_gemini(ws):
                                         "text": part.text
                                     }))
 
-                        # Interrupted — tell React to stop playing audio
+                        # Interrupted---- tell React to stop playing audio
                         if sc.interrupted:
                             ws.send(json.dumps({"control": "stop_audio"}))
 
                 except Exception as e:
-                    print(f"⚠️ receive_from_gemini error: {e}")
+                    print(f"receive_from_gemini error: {e}")
 
             await asyncio.gather(send_to_gemini(), receive_from_gemini())
 
