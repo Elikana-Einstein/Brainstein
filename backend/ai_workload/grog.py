@@ -34,7 +34,7 @@ def live_conversation_with_gemini(ws):
                                 )
                             )
                     except Exception as e:
-                        print(f"⚠️ send_to_gemini error: {e}")
+                        print(f" send_to_gemini error: {e}")
                         break
 
             async def receive_from_gemini():
@@ -53,7 +53,7 @@ def live_conversation_with_gemini(ws):
                         if sc.interrupted:
                             ws.send(json.dumps({"control": "stop_audio"}))
                 except Exception as e:
-                    print(f"⚠️ receive_from_gemini error: {e}")
+                    print(f" receive_from_gemini error: {e}")
 
             await asyncio.gather(send_to_gemini(), receive_from_gemini())
 
@@ -77,11 +77,11 @@ def get_ai_response(audio_data):
         user_text = transcription.text
         if not user_text.strip():
             return None, None
-        print(f"\n👤 User: {user_text}")
+        print(f"\n User: {user_text}")
         ai_text = get_text_ai_response(user_text)
         return user_text, ai_text
     except Exception as e:
-        print(f"❌ AI Error: {e}")
+        print(f" AI Error: {e}")
         return None, None
 
 
@@ -92,27 +92,27 @@ def get_text_ai_response(user_text):
             messages=[
                 {
                     "role": "system",
-                    # ✅ Shorter system prompt = faster response
+                    #  Shorter system prompt this amke sthe chat faster
                     "content": "You are a helpful assistant. Be concise."
                 },
                 {"role": "user", "content": user_text}
             ],
-            model="llama-3.3-70b-versatile",  # ✅ faster + smarter model on Groq
-            max_tokens=300,                    # ✅ cap tokens so it doesn't ramble
+            model="llama-3.3-70b-versatile",  #  faster and  smarter model on Groq
+            max_tokens=300,                    #  cap tokens so it doesn't ramble
             temperature=0.7,
         )
         ai_text = chat_completion.choices[0].message.content
-        print(f"🤖 AI: {ai_text}")
+        print(f" AI: {ai_text}")
         return ai_text
     except Exception as e:
-        print(f"❌ AI Error: {e}")
+        print(f"AI Error: {e}")
         return "Sorry, I couldn't process that."
 
 
 def get_ai_response_from_file(audio_bytes):
     """Transcribe raw audio bytes (webm from browser) and get AI response."""
     try:
-        # Groq accepts webm directly — just wrap in a file-like object
+        # Groq accepts webm directly {just wrap in a file-like object}
         audio_io = io.BytesIO(audio_bytes)
         audio_io.name = 'voice.webm'
 
@@ -124,10 +124,10 @@ def get_ai_response_from_file(audio_bytes):
         if not user_text:
             return None, None
 
-        print(f"\n🎤 Voice: {user_text}")
+        print(f"\n Voice: {user_text}")
         ai_text = get_text_ai_response(user_text)
         return user_text, ai_text
 
     except Exception as e:
-        print(f"❌ Voice transcription error: {e}")
+        print(f"Voice transcription error: {e}")
         return None, None
