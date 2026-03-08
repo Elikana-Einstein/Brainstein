@@ -161,11 +161,9 @@ const Navbar = () => {
   useEffect(()=>{
     if(videoOn){
       startCanvasStream()
-      console.log(123);
       
     }else{
       stopCanvasStream()
-      console.log(2456);
       
     }
   },[videoOn])
