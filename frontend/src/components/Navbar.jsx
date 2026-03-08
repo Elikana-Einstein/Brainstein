@@ -26,13 +26,13 @@ const Navbar = () => {
   } = useStore()
 
   // WebSocket 1: Groq voice transcription 
-  const groqSocketRef = useRef(null)
+  const GeminiSocketRef = useRef(null)
 
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:5000/audio')
     ws.onopen = () => {
-      console.log('🚀 Groq WebSocket connected')
-      groqSocketRef.current = ws
+      console.log('Gemini WebSocket connected')
+      GeminiSocketRef.current = ws
     }
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data)
@@ -148,8 +148,8 @@ const Navbar = () => {
   const toggleMic = async (micStatus) => {
     if (micStatus) {
       // Send audio to BOTH Groq (transcription) and Gemini (live conversation)
-      if (groqSocketRef.current) {
-        await audioManager.turnMicOn(groqSocketRef.current)
+      if (GeminiSocketRef.current) {
+        await audioManager.turnMicOn(GeminiSocketRef.current)
       }
       startCanvasStream() // start sending canvas when mic is on
     } else {
