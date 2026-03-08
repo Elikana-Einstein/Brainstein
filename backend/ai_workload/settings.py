@@ -12,7 +12,7 @@ audio_buffer = []
 grog_apikey = os.getenv('grog_api_key')
 url = os.getenv('uri_mongodb')
 gemini_apikey= os.getenv('gemini_api_key')
-MODEL_ID = "gemini-2.0-flash-exp"
+MODEL_ID = "models/gemini-2.5-flash-native-audio-latest"
 
 # Initialize Groq (Get your key at console.groq.com)
 client1 = Groq(api_key=grog_apikey)

@@ -111,7 +111,7 @@ const Chat = () => {
     const handleSend = async () => {
         const text = inputMessage.trim()
         if ((!text && !attachedFile) || loading) return
-        ws.send(text)
+        ws.send({"text":text})
 
         // If a file is attached, prefix the message with the filename
         const userMsg = attachedFile
@@ -127,40 +127,6 @@ const Chat = () => {
         setAttachedFile(null)
         setLoading(true)
         abortControllerRef.current = new AbortController()
-
-        try {
-           /* const res = await fetch('http://localhost:5000/gemini', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text || attachedFile?.name }),
-                signal: abortControllerRef.current.signal,
-            })*/
-           // const data = await res.json()
-
-            // Replace the "..." placeholder with the real AI response
-            useStore.setState((s) => {
-                const updated = [...s.ChatHistory]
-                for (let i = updated.length - 1; i >= 0; i--) {
-                    if (updated[i].ai === '...') { updated[i] = { user: userMsg, ai: data.ai }; break }
-                }
-                return { ChatHistory: updated }
-            })
-        } catch (err) {
-            // If the user hit Stop, the AbortError is handled in handleStop — ignore it here
-            if (err.name === 'AbortError') return
-
-            // Any other error (server down, network issue)
-            useStore.setState((s) => {
-                const updated = [...s.ChatHistory]
-                for (let i = updated.length - 1; i >= 0; i--) {
-                    if (updated[i].ai === '...') { updated[i] = { ...updated[i], ai: 'Could not reach server.' }; break }
-                }
-                return { ChatHistory: updated }
-            })
-        } finally {
-            setLoading(false)
-            abortControllerRef.current = null
-        }
     }
 
     //  Enter key sends, Shift+Enter adds a new line 

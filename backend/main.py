@@ -1,86 +1,32 @@
-from flask import Flask, request, jsonify
-from flask_sock import Sock
-from flask_cors import CORS
-from ai_workload.api import api_handle_audio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from ai_workload.gemini import live_conversation_with_gemini
-#from ai_workload.grog import get_text_ai_response, get_ai_response_from_file
-import json
-import io
+import uvicorn
+import asyncio
 
-app = Flask(__name__)
-CORS(app)
-sock = Sock(app)
+app = FastAPI()
 
-
-@app.route('/chat', methods=['POST'])
-def chat():
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this to your React app's URL in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+@app.websocket("/gemini")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
     try:
-        data = request.get_json()
-        user_text = data.get('message', '').strip()
-        if not user_text:
-            return jsonify({"error": "Empty message"}), 400
+        # Wait for the very first message to kick off the session
+        initial_data = await websocket.receive_text()
+        print(initial_data)
+        # Call the async function directly (no asyncio.run!)
+        #await live_conversation_with_gemini(websocket, initial_data)
+        
+    except WebSocketDisconnect:
+        print("Client disconnected")
 
-        ai_text = live_conversation_with_gemini(user_text)
-
-        try:
-            from ai_workload.database.collections import chat_collection
-            chat_collection.insert_one({"user": user_text, "ai": ai_text})
-        except Exception as db_err:
-            print(f"⚠️ MongoDB save skipped: {db_err}")
-
-        return jsonify({"user": user_text, "ai": ai_text})
-
-    except Exception as e:
-        print(f"❌ Chat error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/voice', methods=['POST'])
-def voice():
-    """Receive a voice note (webm), transcribe it, return AI response."""
-    try:
-        audio_file = request.files.get('audio')
-        if not audio_file:
-            return jsonify({"error": "No audio file"}), 400
-
-        audio_bytes = audio_file.read()
-        user_text, ai_text = live_conversation_with_gemini(audio_bytes)
-
-        if not user_text:
-            return jsonify({"error": "Could not transcribe audio"}), 400
-
-        try:
-            from ai_workload.database.collections import chat_collection
-            chat_collection.insert_one({"user": user_text, "ai": ai_text})
-        except Exception as db_err:
-            print(f"⚠️ MongoDB save skipped: {db_err}")
-
-        return jsonify({"user": user_text, "ai": ai_text})
-
-    except Exception as e:
-        print(f"❌ Voice error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-
-@sock.route('/db/get')
-def get_chat(ws):
-    try:
-        from ai_workload.database.collections import chat_collection
-        chats = list(chat_collection.find({}, {"_id": 0}).sort("_id", -1).limit(50))
-        ws.send(json.dumps({"chats": chats}))
-    except Exception as e:
-        ws.send(json.dumps({"status": "error", "message": str(e)}))
-
-@sock.route('/gemini')
-def handle_gemini(ws):
-    print("WebSocket connection established!")
-    while True:
-        data = ws.receive()
-        print(f"Received: {data}")
-        # Your logic here:
-        # response = live_conversation_with_gemini(data)
-        ws.send(f"Echo: {data}")
-
-if __name__ == '__main__':
-    app.run(port=5000, debug=False)
+if __name__ == "__main__":
+    # Equivalent to app.run(port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=5000)
