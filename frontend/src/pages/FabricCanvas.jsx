@@ -16,7 +16,7 @@ const useFabricCanvas = (canvasRef, options) => {
     if (historyRef.current.length > 50) historyRef.current.shift();
     redoRef.current = [];
   }, []);
-
+  
   // 1. Initialize Canvas
   useEffect(() => {
     if (!canvasRef.current) return;

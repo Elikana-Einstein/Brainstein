@@ -1,77 +1,81 @@
-// Audio.js
 class AudioManager {
-    constructor() {
-        this.audioContext = null;
-        this.moduleLoaded = false;
-        this.source = null;
-        this.pcmNode = null;
-        this.isActive = false;
-    }
-// Inside your AudioManager class in Audio.1234js
-async turnMicOn(socket) { // Accept the socket here
+  constructor() {
+    this.websocket      = null;
+    this.stream         = null;
+    this.isActive       = false;
+    this.audioContext   = null;
+    this.processor      = null;
+  }
+
+  async turnMicOn(socket) {
     try {
-        this.websocket = socket; // Store reference
+      this.websocket = socket;
 
-        if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Gemini requires 16kHz PCM
+      this.audioContext = new AudioContext({ sampleRate: 16000 });
+
+      const source = this.audioContext.createMediaStreamSource(this.stream);
+
+      // ScriptProcessorNode gives us raw float32 PCM samples
+      // 4096 samples @ 16kHz ≈ 256ms per chunk
+      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+
+      this.processor.onaudioprocess = (e) => {
+        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) return;
+
+        const float32 = e.inputBuffer.getChannelData(0);
+
+        // Convert float32 → 16-bit PCM
+        const pcm16 = new Int16Array(float32.length);
+        for (let i = 0; i < float32.length; i++) {
+          const clamped = Math.max(-1, Math.min(1, float32[i]));
+          pcm16[i] = clamped * 32767;
         }
 
-        if (this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
-        }
-        console.log(123)
-        if (!this.moduleLoaded) {
-            await this.audioContext.audioWorklet.addModule('/audioProcessor.js');
-        console.log(1234563)
+        // Convert to base64
+        const bytes  = new Uint8Array(pcm16.buffer);
+        let binary   = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
 
-            this.moduleLoaded = true;
-        }
-        console.log(16783)
+        this.websocket.send(JSON.stringify({
+          type:        'analyse',
+          audioBase64: base64,
+        }));
+      };
 
+      // Connect: mic → processor → destination (silent output)
+      source.connect(this.processor);
+      this.processor.connect(this.audioContext.destination);
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { channelCount: 1, sampleRate: 16000 }
-        });
+      this.isActive = true;
+      console.log('🎙️ Mic on — streaming 16kHz PCM');
 
-        this.source = this.audioContext.createMediaStreamSource(stream);
-        this.pcmNode = new AudioWorkletNode(this.audioContext, 'pcm-processor');
-
-        // STREAMING LOGIC: Send PCM data to WebSocket
-        this.pcmNode.port.onmessage = (event) => {
-    // This logs every ~20ms
-    console.log('Worklet is alive, socket state:', this.websocket ? this.websocket.readyState : 'NO SOCKET');
-
-    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-        this.websocket.send(event.data.pcmBuffer);
+    } catch (err) {
+      console.error('❌ Mic start failed:', err);
     }
-};
+  }
 
-        this.source.connect(this.pcmNode);
-        this.isActive = true;
-        console.log("AudioContext State:", this.audioContext.state);
-        console.log("🎙️ Streaming started...");
-        
-    } catch (error) {
-        console.error('❌ Mic start failed:', error);
+  turnMicOff() {
+    if (this.processor) {
+      this.processor.disconnect();
+      this.processor = null;
     }
-}
-
-    turnMicOff() {
-        if (this.source) {
-            this.source.mediaStream.getTracks().forEach(track => track.stop());
-            this.source.disconnect();
-            this.source = null;
-        }
-
-        if (this.pcmNode) {
-            this.pcmNode.port.onmessage = null;
-            this.pcmNode.disconnect();
-            this.pcmNode = null;
-        }
-
-        this.isActive = false;
-        console.log('🔇 Microphone fully powered down');
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
     }
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+
+    this.isActive  = false;
+    this.websocket = null;
+    console.log('🔇 Mic off');
+  }
 }
 
 export const audioManager = new AudioManager();

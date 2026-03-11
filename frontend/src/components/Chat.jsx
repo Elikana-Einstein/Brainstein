@@ -1,418 +1,543 @@
 /**
- * Chat.jsx — Elick AI Chat Panel
- * 
- * This is the main chat sidebar component. It handles:
- *  - Sending text messages to the AI
- *  - Voice notes (hold mic to record, release to send)
- *  - File attachments (any file type)
- *  - Stopping the AI mid-response (restores your text so you can edit & resend)
- * 
- * It talks to two Flask endpoints:
- *  - POST /chat  → sends text, gets AI response
- *  - POST /voice → sends audio blob, gets transcription + AI response
+ * Chat.jsx — Elick AI Chat Panel (dark theme)
+ * Matches Whiteboard.jsx + Navbar.jsx aesthetic
  */
 
-import { BrainCircuit, SendHorizontal, Loader2, StopCircle, Mic, MicOff, Paperclip, X, FileText, Image as ImageIcon, Film, Music, Archive } from 'lucide-react'
+import {
+  SendHorizontal, Loader2, StopCircle,
+  Mic, MicOff, Paperclip, X,
+  FileText, ImageIcon, Film, Music, Archive, Sparkles
+} from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import useStore from '../zustand/store'
 import ChatInterface from '../pages/Ai'
 
-// changed  these to restyle the whole panel but you can chaange if you wish to./
-const BG = '#dce8f5'       // outer background
-const CARD = '#eaf2fb'     // input box & file preview background
-const BORDER = '#c2d8ee'   // all borders
-const ACCENT = '#4f8ef7'   // primary blue (buttons, icons)
-const ACCENT2 = '#7c6ef7'  // secondary purple (gradient end)
-const TEXT = '#1e3a5f'     // main text
-const SUBTEXT = '#5a7fa8'  // secondary / hint text
+/* ── Inject fonts once ─────────────────────────────── */
+if (typeof document !== 'undefined' && !document.getElementById('chat-fonts')) {
+  const l = document.createElement('link')
+  l.id = 'chat-fonts'
+  l.rel = 'stylesheet'
+  l.href = 'https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap'
+  document.head.appendChild(l)
+}
 
-//Returns the right icon based on the attached file's MIME type
+/* ── Theme ─────────────────────────────────────────── */
+const T = {
+  bg:       '#0e0e18',
+  surface:  '#111119',
+  surface2: '#16161f',
+  surface3: '#1a1a28',
+  border:   '#1e1e2e',
+  border2:  '#252538',
+  accent:   '#6366f1',
+  accent2:  '#818cf8',
+  red:      '#f87171',
+  text:     '#d0d0ec',
+  muted:    '#48486a',
+  subtext:  '#32324e',
+}
+
+/* ── File icon ─────────────────────────────────────── */
 const getFileIcon = (file) => {
-    if (!file) return <FileText size={13} color={ACCENT} />
-    const t = file.type
-    if (t.startsWith('image/')) return <ImageIcon size={13} color={ACCENT} />
-    if (t.startsWith('video/')) return <Film size={13} color={ACCENT} />
-    if (t.startsWith('audio/')) return <Music size={13} color={ACCENT} />
-    if (t.includes('zip') || t.includes('rar') || t.includes('tar')) return <Archive size={13} color={ACCENT} />
-    return <FileText size={13} color={ACCENT} /> // fallback for PDFs, docs, etc.
+  if (!file) return <FileText size={12} color={T.accent2} />
+  const t = file.type
+  if (t.startsWith('image/')) return <ImageIcon size={12} color={T.accent2} />
+  if (t.startsWith('video/')) return <Film      size={12} color={T.accent2} />
+  if (t.startsWith('audio/')) return <Music     size={12} color={T.accent2} />
+  if (t.includes('zip') || t.includes('rar') || t.includes('tar'))
+    return <Archive size={12} color={T.accent2} />
+  return <FileText size={12} color={T.accent2} />
 }
 
-// Human-readable file size (e.g. "1.4 MB") i think this is a better apploach
-const formatSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+const fmtSize = (b) => {
+  if (b < 1024)    return b + ' B'
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'
+  return (b / 1048576).toFixed(1) + ' MB'
 }
 
+/* ── Icon button ───────────────────────────────────── */
+const IconBtn = ({
+  onClick, onMouseDown, onMouseUp, onTouchStart, onTouchEnd,
+  disabled, title, danger, primary, children
+}) => {
+  const [hov, setHov] = useState(false)
+
+  let bg     = T.surface3
+  let border = `1px solid ${T.border2}`
+  let color  = T.muted
+  let shadow = 'none'
+
+  if (primary) {
+    bg     = disabled ? T.surface3 : `linear-gradient(135deg, ${T.accent}, ${T.accent2})`
+    border = disabled ? `1px solid ${T.border}` : `1px solid ${T.accent}`
+    color  = disabled ? T.muted : '#fff'
+    shadow = disabled ? 'none' : `0 0 14px rgba(99,102,241,.35)`
+  } else if (danger) {
+    bg     = 'rgba(248,113,113,.1)'
+    border = '1px solid rgba(248,113,113,.35)'
+    color  = T.red
+    shadow = '0 0 10px rgba(248,113,113,.15)'
+  } else if (hov && !disabled) {
+    bg     = '#1c1c2c'
+    border = `1px solid ${T.border2}`
+    color  = T.text
+  }
+
+  return (
+    <button
+      title={title}
+      onClick={disabled ? undefined : onClick}
+      onMouseDown={onMouseDown} onMouseUp={onMouseUp}
+      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 30, height: 30, borderRadius: 8,
+        background: bg, border, color, boxShadow: shadow,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'all .15s', outline: 'none', flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+/* ══════════════════════════════════════════════════
+   CHAT
+══════════════════════════════════════════════════ */
 const Chat = () => {
-    const { chatopen, openChat, inputMessage, setInputMessage, addChatMessage,ws } = useStore()
+  const {
+    chatopen, openChat,
+    inputMessage, setInputMessage,
+    addChatMessage, ws,loading,setLoading
+  } = useStore()
 
-    // Whether we're waiting for the AI to respond
-    const [loading, setLoading] = useState(false)
+  const [recording,    setRecording]    = useState(false)
+  const [attachedFile, setAttachedFile] = useState(null)
+  const [waveHeights,  setWaveHeights]  = useState(Array(14).fill(3))
 
-    // Used to cancel a fetch request mid-flight (the "stop" button)
-    const abortControllerRef = useRef(null)
+  const abortRef       = useRef(null)
+  const currentTextRef = useRef('')
+  const mediaRecRef    = useRef(null)
+  const audioChunksRef = useRef([])
+  const fileInputRef   = useRef(null)
+  const waveRef        = useRef(null)
 
-    // We save the user's typed text here before clearing the input,
-    // so if they hit Stop we can put it back — just like Claude does
-    const currentUserTextRef = useRef('')
+  /* ── Waveform animation ───────────────────────────── */
+  useEffect(() => {
+    if (recording) {
+      waveRef.current = setInterval(() => {
+        setWaveHeights(Array(14).fill(0).map(() => 3 + Math.random() * 18))
+      }, 90)
+    } else {
+      clearInterval(waveRef.current)
+      setWaveHeights(Array(14).fill(3))
+    }
+    return () => clearInterval(waveRef.current)
+  }, [recording])
 
-    // Voice recording state
-    const [recording, setRecording] = useState(false)
-    const mediaRecorderRef = useRef(null)
-    const audioChunksRef = useRef([])
+  /* ── Stop ─────────────────────────────────────────── */
+  const handleStop = () => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+    useStore.setState((s) => {
+      const updated = [...s.ChatHistory]
+      for (let i = updated.length - 1; i >= 0; i--) {
+        if (updated[i].ai === '...') { updated.splice(i, 1); break }
+      }
+      return { ChatHistory: updated }
+    })
+    setInputMessage(currentTextRef.current)
+    currentTextRef.current = ''
+  }
 
-    // Waveform bar heights — updated every 100ms while recording
-    const [waveformHeights, setWaveformHeights] = useState(Array(10).fill(4))
-    const waveformInterval = useRef(null)
+  /* ── Send text ────────────────────────────────────── */
+  const handleSend = async () => {
+    const text = inputMessage.trim()
+    if ((!text && !attachedFile) || loading) return
+    ws?.send(JSON.stringify({ type:"text",text:text }))
+    
+    const userMsg = attachedFile
+      ? `📎 ${attachedFile.name}${text ? '\n' + text : ''}`
+      : text
 
-    // File attachment
-    const fileInputRef = useRef(null)
-    const [attachedFile, setAttachedFile] = useState(null)
+    currentTextRef.current = text
+    addChatMessage({ user: userMsg, ai: '...' })
+    setInputMessage('')
+    setAttachedFile(null)
+    setLoading(true)
+    abortRef.current = new AbortController()
+  }
 
-    //  Animate waveform bars while mic is active 
-    useEffect(() => {
-        if (recording) {
-            waveformInterval.current = setInterval(() => {
-                setWaveformHeights(Array(10).fill(0).map(() => 4 + Math.random() * 20))
-            }, 100)
-        } else {
-            clearInterval(waveformInterval.current)
-            setWaveformHeights(Array(10).fill(4))
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
+  }
+
+  /* ── Voice ────────────────────────────────────────── */
+
+  // blob → base64 helper
+  const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result)
+    reader.onerror  = reject
+    reader.readAsDataURL(blob)
+  })
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioChunksRef.current = []
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm'
+
+      const mr = new MediaRecorder(stream, { mimeType })
+      mediaRecRef.current = mr
+
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+
+      mr.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType })
+        stream.getTracks().forEach(t => t.stop())
+        await sendVoiceNote(blob)
+      }
+
+      mr.start()
+      setRecording(true)
+      console.log('[Chat] Recording started, mimeType:', mimeType)
+    } catch (err) {
+      console.error('[Chat] Mic error:', err)
+    }
+  }
+
+  const stopRecording = () => {
+    const mr = mediaRecRef.current
+    // check state on the recorder directly — avoids stale closure on recording state
+    if (mr && mr.state !== 'inactive') {
+      mr.stop()
+      setRecording(false)
+      console.log('[Chat] Recording stopped')
+    }
+  }
+
+  const sendVoiceNote = async (blob) => {
+    console.log('[Chat] Sending voice note, blob size:', blob.size)
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.error('[Chat] WebSocket not connected, readyState:', ws?.readyState)
+      return
+    }
+
+    setLoading(true)
+    addChatMessage({ user: '🎙️ Voice message', ai: '...' })
+
+    try {
+      const base64Full  = await blobToBase64(blob)
+      const audioBase64 = base64Full.split(',')[1]
+      console.log('[Chat] Audio base64 length:', audioBase64.length)
+
+      ws.send(JSON.stringify({ type: 'analyse', audioBase64 }))
+    } catch (err) {
+      console.error('[Chat] Voice send failed:', err)
+      useStore.setState((s) => {
+        const updated = [...s.ChatHistory]
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].ai === '...') { updated.splice(i, 1); break }
         }
-        return () => clearInterval(waveformInterval.current)
-    }, [recording])
-    // Stop button — cancels the AI request and restores the user's text 
-    const handleStop = () => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort()
-            abortControllerRef.current = null
+        return { ChatHistory: updated }
+      })
+      setLoading(false)
+    }
+    // setLoading(false) is triggered by stream_end in the store
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) setAttachedFile(file)
+    e.target.value = ''
+  }
+
+  const canSend = (inputMessage.trim() || attachedFile) && !loading && !recording
+
+  if (!chatopen) return null
+
+  /* ── Render ───────────────────────────────────────── */
+  return (
+    <>
+      <style>{`
+        @keyframes chatSpin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
         }
-        setLoading(false)
-
-        // Remove the pending "..." message from the chat so it's like it never happened
-        useStore.setState((s) => {
-            const updated = [...s.ChatHistory]
-            for (let i = updated.length - 1; i >= 0; i--) {
-                if (updated[i].ai === '...') {
-                    updated.splice(i, 1)
-                    break
-                }
-            }
-            return { ChatHistory: updated }
-        })
-
-        // Put the user's original text back so they can edit and resend
-        setInputMessage(currentUserTextRef.current)
-        currentUserTextRef.current = ''
-    }
-
-    //  Send a text message 
-    const handleSend = async () => {
-        const text = inputMessage.trim()
-        if ((!text && !attachedFile) || loading) return
-      ws.send(JSON.stringify({"text": text}));
-
-        // If a file is attached, prefix the message with the filename
-        const userMsg = attachedFile
-            ? `📎 ${attachedFile.name}${text ? '\n' + text : ''}`
-            : text
-
-        // Save text before we clear the input (needed for Stop restore)
-        currentUserTextRef.current = text
-
-        // Show the user's message immediately with a "..." placeholder for the AI
-        addChatMessage({ user: userMsg, ai: '...' })
-        setInputMessage('')
-        setAttachedFile(null)
-        setLoading(true)
-        abortControllerRef.current = new AbortController()
-    }
-
-    //  Enter key sends, Shift+Enter adds a new line 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-    }
-
-    //  Voice note: hold button → records → release → transcribes + AI reply 
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            audioChunksRef.current = []
-            const mr = new MediaRecorder(stream)
-            mediaRecorderRef.current = mr
-
-            mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
-
-            mr.onstop = async () => {
-                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-                stream.getTracks().forEach(t => t.stop()) // release mic
-                await sendVoiceNote(blob)
-            }
-
-            mr.start()
-            setRecording(true)
-        } catch (err) {
-            console.error('Mic error — make sure browser has mic permission:', err)
+        .chat-scroll::-webkit-scrollbar { width: 3px; }
+        .chat-scroll::-webkit-scrollbar-thumb {
+          background: #1e1e2e; border-radius: 4px;
         }
-    }
+      `}</style>
 
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && recording) {
-            mediaRecorderRef.current.stop()
-            setRecording(false)
-        }
-    }
+      <div style={{
+        position: 'fixed',
+        top: '50%', right: 16,
+        transform: 'translateY(-50%)',
+        height: 'calc(100vh - 40px)',
+        width: 300,
+        display: 'flex', flexDirection: 'column',
+        background: T.bg,
+        borderRadius: 16,
+        border: `1px solid ${T.border}`,
+        boxShadow: '0 24px 64px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.025)',
+        overflow: 'hidden',
+        zIndex: 50,
+        fontFamily: "'Syne', sans-serif",
+      }}>
 
-    // ── Sends the recorded audio blob to Flask /voice 
-    const sendVoiceNote = async (blob) => {
-        setLoading(true)
-        addChatMessage({ user: 'Voice message', ai: '...' })
-        abortControllerRef.current = new AbortController()
+        {/* ── Header ─────────────────────────────────── */}
+        <div style={{
+          padding: '12px 14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: T.surface,
+          borderBottom: `1px solid ${T.border}`,
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: 9,
+              background: `linear-gradient(135deg, ${T.accent}, ${T.accent2})`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 14px rgba(99,102,241,.3)`,
+              flexShrink: 0,
+            }}>
+              <Sparkles size={14} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: '-0.2px' }}>
+                AI Assistant
+              </div>
+              <div style={{
+                fontSize: 10, color: loading ? T.accent2 : T.muted,
+                fontFamily: "'DM Mono', monospace",
+                transition: 'color .3s',
+              }}>
+                {loading ? 'thinking…' : 'ready'}
+              </div>
+            </div>
+          </div>
 
-        try {
-            const formData = new FormData()
-            formData.append('audio', blob, 'voice.webm')
-
-            const res = await fetch('http://localhost:5000/voice', {
-                method: 'POST',
-                body: formData,
-                signal: abortControllerRef.current.signal
-            })
-            const data = await res.json()
-
-            // Show what the user actually said + the AI's reply
-            useStore.setState((s) => {
-                const updated = [...s.ChatHistory]
-                for (let i = updated.length - 1; i >= 0; i--) {
-                    if (updated[i].ai === '...') {
-                        updated[i] = { user: `"${data.user}"`, ai: data.ai }
-                        break
-                    }
-                }
-                return { ChatHistory: updated }
-            })
-        } catch (err) {
-            if (err.name === 'AbortError') return
-        } finally {
-            setLoading(false)
-            abortControllerRef.current = null
-        }
-    }
-
-    // ── File picker — accepts any file type 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0]
-        if (file) setAttachedFile(file)
-        e.target.value = '' // reset so the same file can be re-selected
-    }
-
-    // Send button is only active when there's text or a file, and we're not busy
-    const canSend = (inputMessage.trim() || attachedFile) && !loading && !recording
-
-    return (
-        <div>
-            {chatopen && (
-                <div style={{
-                    position: 'fixed', top: '1rem', right: '0.75rem',
-                    height: 'calc(100vh - 2rem)', width: '300px',
-                    display: 'flex', flexDirection: 'column',
-                    background: BG,
-                    borderRadius: '20px',
-                    border: `1px solid ${BORDER}`,
-                    boxShadow: '0 8px 32px rgba(79,142,247,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-                    overflow: 'hidden', zIndex: 10,
-                    fontFamily: "'DM Sans', system-ui, sans-serif"
-                }}>
-
-                    {/* ── Header ── */}
-                    <div style={{
-                        padding: '14px 16px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        background: '#d0e4f4',
-                        borderBottom: `1px solid ${BORDER}`,
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, letterSpacing: '-0.02em' }}>
-                                    Hello, how can i help you?
-                                </div>
-                            </div>
-                        </div>
-                        {/* Close button — hides the chat panel */}
-                        <button onClick={openChat} style={{
-                            background: 'rgba(79,142,247,0.1)', border: `1px solid ${BORDER}`,
-                            cursor: 'pointer', width: 28, height: 28, borderRadius: '50%',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: SUBTEXT, fontSize: 13, fontWeight: 600, transition: 'all 0.2s'
-                        }}>✕</button>
-                    </div>
-
-                    {/* ── Message history (scrollable) ── */}
-                    <div style={{ flex: 1, overflowY: 'auto', padding: '14px 12px', scrollbarWidth: 'none' }}>
-                        <ChatInterface />
-                    </div>
-
-                    {/* ── File preview — shown after user picks a file ── */}
-                    {attachedFile && (
-                        <div style={{
-                            margin: '0 10px 8px', padding: '8px 12px',
-                            background: CARD, borderRadius: 10,
-                            border: `1px solid ${BORDER}`,
-                            display: 'flex', alignItems: 'center', gap: 8
-                        }}>
-                            {getFileIcon(attachedFile)}
-                            <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {attachedFile.name}
-                                </div>
-                                <div style={{ fontSize: 10, color: SUBTEXT }}>{formatSize(attachedFile.size)}</div>
-                            </div>
-                            {/* Remove the attached file */}
-                            <button onClick={() => setAttachedFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUBTEXT, padding: 2 }}>
-                                <X size={12} />
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Waveform which is only visible while mic is recording ─ */}
-                    {recording && (
-                        <div style={{
-                            margin: '0 10px 8px', padding: '8px 14px',
-                            background: '#fee2e2', borderRadius: 10,
-                            border: '1px solid #fecaca',
-                            display: 'flex', alignItems: 'center', gap: 6
-                        }}>
-                            {/* Pulsing red dot */}
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444', flexShrink: 0 }} />
-                            {/* Animated bars — heights change every 100ms */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
-                                {waveformHeights.map((h, i) => (
-                                    <div key={i} style={{
-                                        width: 3, height: h, borderRadius: 2,
-                                        background: 'linear-gradient(to top, #ef4444, #f97316)',
-                                        transition: 'height 0.1s ease'
-                                    }} />
-                                ))}
-                            </div>
-                            <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>Recording</span>
-                        </div>
-                    )}
-
-                    {/* ── Input box + toolbar ── */}
-                    <div style={{
-                        margin: '0 10px 10px',
-                        background: CARD,
-                        borderRadius: 14,
-                        border: `1.5px solid ${BORDER}`,
-                        boxShadow: '0 2px 8px rgba(79,142,247,0.08)',
-                        overflow: 'hidden'
-                    }}>
-                        <textarea
-                            value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={recording ? 'Release mic to send...' : 'Ask me anything...'}
-                            disabled={loading || recording}
-                            rows={2}
-                            style={{
-                                width: '100%', padding: '11px 14px', resize: 'none',
-                                background: 'transparent', border: 'none', outline: 'none',
-                                color: TEXT, fontSize: 13, lineHeight: 1.5,
-                                fontFamily: 'inherit', boxSizing: 'border-box'
-                            }}
-                        />
-
-                        {/* Action buttons row  */}
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '4px 10px 10px'
-                        }}>
-                            {/* Status hint */}
-                            <span style={{ fontSize: 10, color: SUBTEXT, fontWeight: 500 }}>
-                                {loading ? 'Thinking...' : recording ? 'Release to send' : 'Enter to send'}
-                            </span>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-
-                                {/*  File attach input accepts any file type */}
-                                {!loading && !recording && (
-                                    <>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="*/*"
-                                            style={{ display: 'none' }}
-                                            onChange={handleFileChange}
-                                        />
-                                        <button onClick={() => fileInputRef.current.click()} title="Attach any file"
-                                            style={btnStyle(BORDER, CARD)}>
-                                            <Paperclip size={13} color={SUBTEXT} />
-                                        </button>
-                                    </>
-                                )}
-
-                                {/* stop or cancels the AI request, restores user text */}
-                                {loading && (
-                                    <button onClick={handleStop} title="Stop AI"
-                                        style={{ ...btnStyle('#fecaca', '#fee2e2'), border: '1px solid #fca5a5' }}>
-                                        <StopCircle size={13} color="#ef4444" />
-                                    </button>
-                                )}
-
-                                {/* this part is for Mic. you just hold to record, release to send voice note */}
-                                {!loading && (
-                                    <button
-                                        onMouseDown={startRecording} onMouseUp={stopRecording}
-                                        onTouchStart={startRecording} onTouchEnd={stopRecording}
-                                        title="Hold to record voice note"
-                                        style={recording
-                                            ? { ...btnStyle('#fecaca', '#fee2e2'), border: '1px solid #fca5a5' }
-                                            : btnStyle(BORDER, CARD)
-                                        }>
-                                        {recording ? <MicOff size={13} color="#ef4444" /> : <Mic size={13} color={SUBTEXT} />}
-                                    </button>
-                                )}
-
-                                {/*  send{lights up blue only when there's something to send }*/}
-                                {!loading && !recording && (
-                                    <button onClick={handleSend} disabled={!canSend} title="Send message"
-                                        style={{
-                                            background: canSend ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})` : '#dde9f5',
-                                            border: 'none', borderRadius: 9, width: 30, height: 30,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            cursor: canSend ? 'pointer' : 'default', transition: 'all 0.2s',
-                                            boxShadow: canSend ? '0 2px 10px rgba(79,142,247,0.35)' : 'none'
-                                        }}>
-                                        <SendHorizontal size={13} color={canSend ? 'white' : '#a0bad4'} />
-                                    </button>
-                                )}
-
-                                {/* Spinner — shown while waiting for AI response */}
-                                {loading && (
-                                    <div style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Loader2 size={14} color={ACCENT} style={{ animation: 'spin 1s linear infinite' }} />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            )}
-            <style>{`
-                @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-            `}</style>
+          {/* Close */}
+          <button
+            onClick={openChat}
+            style={{
+              width: 26, height: 26, borderRadius: 7,
+              background: T.surface3,
+              border: `1px solid ${T.border2}`,
+              color: T.muted, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 700,
+              transition: 'all .15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = T.text; e.currentTarget.style.borderColor = '#38384e' }}
+            onMouseLeave={e => { e.currentTarget.style.color = T.muted; e.currentTarget.style.borderColor = T.border2 }}
+          >
+            <X size={13} />
+          </button>
         </div>
-    )
+
+        {/* ── Messages ───────────────────────────────── */}
+        <div
+          className="chat-scroll"
+          style={{
+            flex: 1, overflowY: 'auto',
+            padding: '14px 12px',
+            scrollbarWidth: 'thin',
+            scrollbarColor: `${T.border} transparent`,
+          }}
+        >
+          <ChatInterface />
+        </div>
+
+        {/* ── File preview ───────────────────────────── */}
+        {attachedFile && (
+          <div style={{
+            margin: '0 10px 8px',
+            padding: '8px 11px',
+            background: T.surface2,
+            borderRadius: 10,
+            border: `1px solid ${T.border2}`,
+            display: 'flex', alignItems: 'center', gap: 8,
+            flexShrink: 0,
+          }}>
+            {getFileIcon(attachedFile)}
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: T.text,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {attachedFile.name}
+              </div>
+              <div style={{ fontSize: 10, color: T.muted, fontFamily: "'DM Mono', monospace" }}>
+                {fmtSize(attachedFile.size)}
+              </div>
+            </div>
+            <button
+              onClick={() => setAttachedFile(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, padding: 2 }}
+            >
+              <X size={11} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Waveform (recording) ───────────────────── */}
+        {recording && (
+          <div style={{
+            margin: '0 10px 8px',
+            padding: '8px 14px',
+            background: 'rgba(248,113,113,.07)',
+            borderRadius: 10,
+            border: '1px solid rgba(248,113,113,.25)',
+            display: 'flex', alignItems: 'center', gap: 8,
+            flexShrink: 0,
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: T.red,
+              boxShadow: `0 0 8px ${T.red}`,
+              flexShrink: 0,
+              animation: 'aiDotBounce 1s infinite',
+            }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+              {waveHeights.map((h, i) => (
+                <div key={i} style={{
+                  width: 2.5, height: h, borderRadius: 2,
+                  background: `linear-gradient(to top, ${T.red}, #fb923c)`,
+                  transition: 'height 0.09s ease',
+                }} />
+              ))}
+            </div>
+            <span style={{
+              fontSize: 10, color: T.red,
+              fontFamily: "'DM Mono', monospace",
+              fontWeight: 500,
+            }}>
+              REC
+            </span>
+          </div>
+        )}
+
+        {/* ── Input box ──────────────────────────────── */}
+        <div style={{
+          margin: '0 10px 10px',
+          background: T.surface2,
+          borderRadius: 12,
+          border: `1px solid ${T.border2}`,
+          overflow: 'hidden',
+          flexShrink: 0,
+        }}>
+          <textarea
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={recording ? 'Release to send…' : 'Ask me anything…'}
+            disabled={loading || recording}
+            rows={2}
+            style={{
+              width: '100%', padding: '11px 13px',
+              resize: 'none', background: 'transparent',
+              border: 'none', outline: 'none',
+              color: T.text, fontSize: 12.5, lineHeight: 1.6,
+              fontFamily: "'Syne', sans-serif",
+              boxSizing: 'border-box',
+            }}
+          />
+
+          {/* Action row */}
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '4px 10px 10px',
+          }}>
+            {/* Status hint */}
+            <span style={{
+              fontSize: 10, color: T.subtext,
+              fontFamily: "'DM Mono', monospace",
+            }}>
+              {loading ? 'thinking…' : recording ? 'release to send' : '↵ to send'}
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+
+              {/* File attach */}
+              {!loading && !recording && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file" accept="*/*"
+                    style={{ display: 'none' }}
+                    onChange={handleFileChange}
+                  />
+                  <IconBtn
+                    title="Attach file"
+                    onClick={() => fileInputRef.current.click()}
+                  >
+                    <Paperclip size={13} />
+                  </IconBtn>
+                </>
+              )}
+
+              {/* Stop */}
+              {loading && (
+                <IconBtn danger title="Stop" onClick={handleStop}>
+                  <StopCircle size={13} />
+                </IconBtn>
+              )}
+
+              {/* Mic */}
+              {!loading && (
+                <IconBtn
+                  title="Hold to record"
+                  danger={recording}
+                  onMouseDown={startRecording}
+                  onMouseUp={stopRecording}
+                  onTouchStart={startRecording}
+                  onTouchEnd={stopRecording}
+                >
+                  {recording ? <MicOff size={13} /> : <Mic size={13} />}
+                </IconBtn>
+              )}
+
+              {/* Send */}
+              {!loading && !recording && (
+                <IconBtn primary disabled={!canSend} title="Send" onClick={handleSend}>
+                  <SendHorizontal size={13} />
+                </IconBtn>
+              )}
+
+              {/* Spinner */}
+              {loading && (
+                <div style={{
+                  width: 30, height: 30,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Loader2
+                    size={14}
+                    color={T.accent}
+                    style={{ animation: 'chatSpin 1s linear infinite' }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </>
+  )
 }
-
-
-const btnStyle = (border, bg) => ({
-    background: bg, border: `1px solid ${border}`,
-    borderRadius: 9, width: 30, height: 30,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', transition: 'all 0.2s'
-})
 
 export default Chat

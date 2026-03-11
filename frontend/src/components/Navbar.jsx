@@ -1,136 +1,161 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Mic, Video, Undo2, Redo2, MicOffIcon, VideoOffIcon, MessageSquare } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, Undo2, Redo2, MessageSquare, Wifi, WifiOff } from 'lucide-react'
 import useStore from '../zustand/store'
 import { audioManager } from '../utilities/Audio'
 
+/* ── Inject fonts once ─────────────────────────────── */
+if (typeof document !== 'undefined' && !document.getElementById('nb-fonts')) {
+  const l = document.createElement('link')
+  l.id = 'nb-fonts'
+  l.rel = 'stylesheet'
+  l.href = 'https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap'
+  document.head.appendChild(l)
+}
+
+/* ── Tooltip ───────────────────────────────────────── */
+const Tip = ({ label, children }) => {
+  const [show, setShow] = useState(false)
+  return (
+    <div
+      style={{ position: 'relative', display: 'flex' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show && (
+        <div style={{
+          position: 'absolute', left: 'calc(100% + 10px)', top: '50%',
+          transform: 'translateY(-50%)',
+          background: '#1a1a28', color: '#c8c8e8',
+          fontSize: 11, fontFamily: "'DM Mono', monospace",
+          padding: '4px 9px', borderRadius: 6,
+          border: '1px solid #2a2a3e',
+          whiteSpace: 'nowrap', pointerEvents: 'none',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+          zIndex: 100,
+        }}>
+          {label}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── NavButton ─────────────────────────────────────── */
+const NavBtn = ({ onClick, active, danger, glow, disabled, children }) => {
+  const [hov, setHov] = useState(false)
+
+  let bg = 'transparent'
+  let border = '1px solid #1e1e2e'
+  let color = '#4a4a6a'
+  let shadow = 'none'
+
+  if (active && danger) {
+    bg = 'rgba(239,68,68,0.15)'
+    border = '1px solid rgba(239,68,68,0.5)'
+    color = '#f87171'
+    shadow = '0 0 14px rgba(239,68,68,0.25)'
+  } else if (active && glow) {
+    bg = 'rgba(99,102,241,0.15)'
+    border = '1px solid rgba(99,102,241,0.5)'
+    color = '#a5b4fc'
+    shadow = '0 0 14px rgba(99,102,241,0.25)'
+  } else if (active) {
+    bg = 'rgba(52,211,153,0.12)'
+    border = '1px solid rgba(52,211,153,0.4)'
+    color = '#34d399'
+    shadow = '0 0 14px rgba(52,211,153,0.2)'
+  } else if (hov && !disabled) {
+    bg = '#1a1a28'
+    border = '1px solid #2a2a3e'
+    color = '#9090b8'
+  }
+
+  if (disabled) { color = '#2a2a40'; border = '1px solid #141420' }
+
+  return (
+    <button
+      onClick={disabled ? undefined : onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 40, height: 40, borderRadius: 10,
+        border, background: bg, color,
+        boxShadow: shadow,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'all .18s',
+        outline: 'none',
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+/* ── Divider ───────────────────────────────────────── */
+const Div = () => (
+  <div style={{ width: 32, height: 1, background: '#1a1a28', margin: '2px auto', flexShrink: 0 }} />
+)
+
+/* ══════════════════════════════════════════════════
+   NAVBAR
+══════════════════════════════════════════════════ */
 const Navbar = () => {
-  const [open, SetOpen] = useState(1)
-  const [micOn, setMicOn] = useState(false)
+  const [micOn, setMicOn]   = useState(false)
   const [videoOn, setVideoOn] = useState(false)
   const [geminiReady, setGeminiReady] = useState(false)
 
-  const colorOptions = [
-    { name: 'Blue', value: '#3B82F6' },
-    { name: 'Red', value: '#EF4444' },
-    { name: 'Green', value: '#10B981' },
-    { name: 'Purple', value: '#8B5CF6' },
-    { name: 'Orange', value: '#F97316' },
-    { name: 'Pink', value: '#EC4899' },
-  ]
-  const widthOptions = [2, 3, 4, 5]
+  const { openChat,connectWS, triggerRedo, triggerUndo, addChatMessage, fabricCanvasRef, ws, wsReady } = useStore()
 
-  const {
-    openChat, changeBrWidth, changeBrColor,
-    b_color, b_width, triggerRedo, triggerUndo,
-    addChatMessage, fabricCanvasRef
-  } = useStore()
-
-  const geminiSocketRef = useRef(null)
+  const geminiSocketRef   = useRef(null)
   const canvasIntervalRef = useRef(null)
-  const audioQueueRef = useRef([])
-  const isPlayingRef = useRef(false)
-  const audioCtxRef = useRef(null)
+  const audioQueueRef     = useRef([])
+  const isPlayingRef      = useRef(false)
+  const audioCtxRef       = useRef(null)
 
-  // Connect to Gemini Live WebSocket
+  /* ── Sync with store WebSocket ─────────────────── */
   useEffect(() => {
-    const socket = new WebSocket('ws://localhost:5000/gemini')
-socket.binaryType = 'arraybuffer';
-    socket.onopen = () => {
-      console.log('Gemini Live WebSocket connected')
-      geminiSocketRef.current = socket
-      setGeminiReady(true)
-      // Send initial handshake so backend has a first_message
-      socket.send(JSON.stringify({ init: true }))
-    }
+    connectWS();
+    setGeminiReady(wsReady)
+    geminiSocketRef.current = wsReady ? ws : null
+  }, [ws, wsReady])
 
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-
-        if (data.audio) {
-          audioQueueRef.current.push(data.audio)
-          if (!isPlayingRef.current) playNextAudio()
-        }
-
-        if (data.text) {
-          addChatMessage({ user: '', ai: data.text })
-        }
-
-        if (data.transcript) {
-          addChatMessage({ user: '', ai: `🎙️ ${data.transcript}` })
-        }
-
-        if (data.control === 'stop_audio') {
-          audioQueueRef.current = []
-          isPlayingRef.current = false
-        }
-      } catch (e) {
-        console.error('Failed to parse Gemini message', e)
-      }
-    }
-
-    socket.onerror = (e) => console.error('Gemini WS error', e)
-    socket.onclose = () => {
-      console.log('Gemini WS closed')
-      setGeminiReady(false)
-    }
-
-    return () => {
-      if (socket.readyState === WebSocket.OPEN) socket.close()
-      clearInterval(canvasIntervalRef.current)
-    }
+  useEffect(() => {
+    return () => clearInterval(canvasIntervalRef.current)
   }, [])
 
-  // Ensure AudioContext is created/resumed after a user gesture
+  /* ── AudioContext ────────────────────────────────── */
   const ensureAudioContext = () => {
-    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed')
       audioCtxRef.current = new AudioContext({ sampleRate: 24000 })
-    }
-    if (audioCtxRef.current.state === 'suspended') {
+    if (audioCtxRef.current.state === 'suspended')
       audioCtxRef.current.resume()
-    }
   }
 
-  // Play AI audio response (reuses single AudioContext)
   const playNextAudio = async () => {
-    if (audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false
-      return
-    }
+    if (!audioQueueRef.current.length) { isPlayingRef.current = false; return }
     isPlayingRef.current = true
     const b64 = audioQueueRef.current.shift()
     try {
-      const binary = atob(b64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-
-      const ctx = audioCtxRef.current
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+      const ctx   = audioCtxRef.current
       if (!ctx || ctx.state === 'closed') {
-        // AudioContext not ready yet, re-queue and wait
-        audioQueueRef.current.unshift(b64)
-        isPlayingRef.current = false
-        return
+        audioQueueRef.current.unshift(b64); isPlayingRef.current = false; return
       }
-
-      const int16 = new Int16Array(bytes.buffer)
+      const int16  = new Int16Array(bytes.buffer)
       const buffer = ctx.createBuffer(1, int16.length, 24000)
-      const channelData = buffer.getChannelData(0)
-      for (let i = 0; i < int16.length; i++) {
-        channelData[i] = int16[i] / 32768
-      }
-
-      const source = ctx.createBufferSource()
-      source.buffer = buffer
-      source.connect(ctx.destination)
-      source.onended = () => playNextAudio()
-      source.start()
-    } catch (e) {
-      console.error('Audio playback error', e)
-      playNextAudio()
-    }
+      const ch     = buffer.getChannelData(0)
+      for (let i = 0; i < int16.length; i++) ch[i] = int16[i] / 32768
+      const src = ctx.createBufferSource()
+      src.buffer = buffer; src.connect(ctx.destination)
+      src.onended = () => playNextAudio()
+      src.start()
+    } catch (e) { console.error('Audio error', e); playNextAudio() }
   }
 
-  // Send canvas snapshot every 3 seconds
+  /* ── Canvas stream ───────────────────────────────── */
   const startCanvasStream = () => {
     if (canvasIntervalRef.current) return
     canvasIntervalRef.current = setInterval(() => {
@@ -139,151 +164,116 @@ socket.binaryType = 'arraybuffer';
       if (!ws || ws.readyState !== WebSocket.OPEN || !canvas) return
       try {
         const imageB64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1]
-        ws.send(JSON.stringify({ image: imageB64 }))
-      } catch (e) {
-        console.error('Canvas snapshot error', e)
-      }
+        ws.send(JSON.stringify({ type: 'image', image: imageB64 }))
+      } catch (e) { console.error('Snapshot error', e) }
     }, 3000)
   }
-
   const stopCanvasStream = () => {
     clearInterval(canvasIntervalRef.current)
     canvasIntervalRef.current = null
   }
 
-  // Mic toggle
-  const toggleMic = async (micStatus) => {
-    ensureAudioContext() // Must be called on user gesture
-    if (micStatus) {
+  /* ── Mic / Video toggles ─────────────────────────── */
+  const toggleMic = async (on) => {
+    ensureAudioContext()
+    if (on) {
       const ws = geminiSocketRef.current
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        await audioManager.turnMicOn(ws)
-      }
-      //startCanvasStream()
+      if (ws && ws.readyState === WebSocket.OPEN) await audioManager.turnMicOn(ws)
     } else {
       audioManager.turnMicOff()
-      //stopCanvasStream()
     }
   }
-
   useEffect(() => { toggleMic(micOn) }, [micOn])
-
   useEffect(() => {
-    if (videoOn) {
-      ensureAudioContext()
-      startCanvasStream()
-    } else {
-      stopCanvasStream()
-    }
+    if (videoOn) { ensureAudioContext(); startCanvasStream() }
+    else stopCanvasStream()
   }, [videoOn])
 
+  /* ════════════════════════════════════════════════
+     RENDER
+  ════════════════════════════════════════════════ */
   return (
-    <div>
-      {open ? (
-        <div className="fixed top-4 left-2 h-screen w-8 bg-gray-200 backdrop-blur-md shadow-xl border border-white/20 z-10">
-          <button className='flex flex-col p-2 gap-1' onClick={() => SetOpen(0)}>
-            <div className='w-4 h-1 bg-gray-800'></div>
-            <div className='w-4 h-1 bg-gray-800'></div>
-            <div className='w-4 h-1 bg-gray-800'></div>
-          </button>
+    <div style={{
+      position: 'fixed', top: '50%', left: 16,
+      transform: 'translateY(-50%)',
+      zIndex: 50,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: 6,
+      background: '#0e0e18',
+      border: '1px solid #1a1a2a',
+      borderRadius: 16,
+      padding: '14px 10px',
+      boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03)',
+      fontFamily: "'Syne', sans-serif",
+    }}>
 
-          <div className='pt-10 flex flex-col pl-1 pr-1 gap-y-8'>
-            <button
-              onClick={() => setMicOn(!micOn)}
-              className={`rounded-full p-1 transition-all ${micOn ? 'bg-green-400 shadow-lg shadow-green-300' : ''}`}
-            >
-              {micOn ? <Mic size={24} /> : <MicOffIcon size={24} />}
-            </button>
+      {/* Brand dot */}
+      <div style={{
+        width: 8, height: 8, borderRadius: '50%',
+        background: geminiReady ? '#34d399' : '#374151',
+        boxShadow: geminiReady ? '0 0 10px #34d39988' : 'none',
+        transition: 'all .4s',
+        marginBottom: 4,
+        flexShrink: 0,
+      }} title={geminiReady ? 'Gemini connected' : 'Gemini disconnected'} />
 
-            <button onClick={() => { setVideoOn(!videoOn) }}>
-              {videoOn ? <Video size={24} /> : <VideoOffIcon size={24} />}
-            </button>
+      {/* ── Mic ── */}
+      <Tip label={micOn ? 'Mute mic' : 'Unmute mic'}>
+        <NavBtn active={micOn} danger={false} onClick={() => setMicOn(v => !v)}>
+          {micOn ? <Mic size={17} /> : <MicOff size={17} />}
+        </NavBtn>
+      </Tip>
 
-            <button onClick={openChat}>
-              <MessageSquare size={24} />
-            </button>
+      {/* ── Video / canvas stream ── */}
+      <Tip label={videoOn ? 'Stop board stream' : 'Stream board to AI'}>
+        <NavBtn active={videoOn} glow onClick={() => setVideoOn(v => !v)}>
+          {videoOn ? <Video size={17} /> : <VideoOff size={17} />}
+        </NavBtn>
+      </Tip>
 
-            <button><Undo2 onClick={triggerUndo} size={24} /></button>
-            <button><Redo2 onClick={triggerRedo} size={24} /></button>
-          </div>
+      <Div />
 
-          <div
-            className={`absolute bottom-8 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full ${geminiReady ? 'bg-green-400' : 'bg-red-400'}`}
-            title={geminiReady ? 'Gemini connected' : 'Gemini disconnected'}
-          />
-        </div>
-      ) : (
-        <div className="fixed top-4 left-0 h-[calc(100vh-2rem)] w-72 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 flex flex-col z-10">
-          <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-            <div className="w-6 h-6 rounded-full shadow-md transition-all duration-300" style={{ backgroundColor: b_color }} />
-            <h2 className="text-xl font-semibold text-gray-800">Brush Settings</h2>
-            <div className='pl-5'>
-              <button className='bg-red-400 rounded-full w-8 cursor-pointer' onClick={() => SetOpen(1)}>
-                <h1 className='text-2xl'>X</h1>
-              </button>
-            </div>
-          </div>
+      {/* ── Chat ── */}
+      <Tip label="Open chat">
+        <NavBtn onClick={openChat}>
+          <MessageSquare size={17} />
+        </NavBtn>
+      </Tip>
 
-          <div className="mt-6">
-            <h3 className="text-sm uppercase tracking-wider text-gray-500 font-medium mb-3 flex items-center gap-2">
-              <span className="w-1 h-4 bg-blue-400 rounded-full"></span>
-              Color palette
-            </h3>
-            <div className="grid grid-cols-3 gap-2">
-              {colorOptions.map((c) => (
-                <button
-                  key={c.value}
-                  onClick={() => changeBrColor(c.value)}
-                  className={`group relative h-14 rounded-xl shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95 ${b_color === c.value ? 'ring-2 ring-offset-2 ring-blue-400' : ''}`}
-                  style={{ backgroundColor: c.value }}
-                >
-                  <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-medium opacity-0 group-hover:opacity-100 bg-black/20 rounded-xl transition-opacity">
-                    {c.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+      <Div />
 
-          <div className="mt-8">
-            <h3 className="text-sm uppercase tracking-wider text-gray-500 font-medium mb-3 flex items-center gap-2">
-              <span className="w-1 h-4 bg-purple-400 rounded-full"></span>
-              Stroke width
-            </h3>
-            <div className="flex gap-2 flex-wrap">
-              {widthOptions.map((w) => (
-                <button
-                  key={w}
-                  onClick={() => changeBrWidth(w)}
-                  className={`flex-1 min-w-10 py-3 rounded-xl font-medium transition-all duration-200 hover:shadow-md active:scale-95 ${b_width === w ? 'bg-linear-to-br from-blue-500 to-purple-500 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="text-xs">px</span>
-                    <span className="text-lg font-bold">{w}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+      {/* ── Undo / Redo ── */}
+      <Tip label="Undo">
+        <NavBtn onClick={triggerUndo}>
+          <Undo2 size={17} />
+        </NavBtn>
+      </Tip>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-              <p className="text-xs text-gray-500 mb-2">Live preview</p>
-              <div className="flex items-center gap-2">
-                <div className="text-sm text-gray-600">Selected:</div>
-                <div className="h-1 rounded-full transition-all duration-300"
-                  style={{ backgroundColor: b_color, width: `${b_width * 8}px`, maxWidth: '100px' }} />
-                <div className="text-xs text-gray-400 font-mono">{b_width}px</div>
-              </div>
-            </div>
-          </div>
+      <Tip label="Redo">
+        <NavBtn onClick={triggerRedo}>
+          <Redo2 size={17} />
+        </NavBtn>
+      </Tip>
 
-          <div className="mt-auto pt-6 text-xs text-gray-400 flex justify-between items-center border-t border-gray-100">
-            <span>✨ click any color or width</span>
-            <span className="font-mono text-white px-2 py-1 rounded-full" style={{ backgroundColor: b_color }}>
-              {colorOptions.find(c => c.value === b_color)?.name || 'Custom'}
-            </span>
-          </div>
-        </div>
-      )}
+      {/* ── Connection label ── */}
+      <div style={{
+        marginTop: 6,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+      }}>
+        {geminiReady
+          ? <Wifi size={12} color="#34d399" />
+          : <WifiOff size={12} color="#374151" />
+        }
+        <span style={{
+          fontSize: 9, color: geminiReady ? '#34d399' : '#374151',
+          fontFamily: "'DM Mono', monospace",
+          letterSpacing: '0.5px',
+          transition: 'color .4s',
+        }}>
+          {geminiReady ? 'LIVE' : 'OFF'}
+        </span>
+      </div>
+
     </div>
   )
 }
