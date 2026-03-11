@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Mic, MicOff, Video, VideoOff, Undo2, Redo2, MessageSquare, Wifi, WifiOff } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, Undo2, Redo2, MessageSquare, Wifi, WifiOff,FileArchiveIcon } from 'lucide-react'
 import useStore from '../zustand/store'
 import { audioManager } from '../utilities/Audio'
 
@@ -252,6 +252,11 @@ const Navbar = () => {
       <Tip label="Redo">
         <NavBtn onClick={triggerRedo}>
           <Redo2 size={17} />
+        </NavBtn>
+      </Tip>
+        <Tip label="Create new canvas">
+        <NavBtn onClick={triggerRedo}>
+          <FileArchiveIcon size={17} />
         </NavBtn>
       </Tip>
 

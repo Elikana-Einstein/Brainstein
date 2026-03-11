@@ -71,6 +71,7 @@ const useStore = create((set, get) => ({
   changeBrColor: (color) => set({ b_color: color }),
   changeBrWidth: (width) => set({ b_width: width }),
   loading: false,
+  loggedIn: true,
 
   ws: null,
   wsReady: false,
@@ -184,6 +185,7 @@ const useStore = create((set, get) => ({
   inputMessage: '',
   setInputMessage: (text) => set({ inputMessage: text }),
   setLoading:     (val)  => set({ loading: val }),
+  setLoggedIn:     (val)  => set({ loggedIn: val }),
 
   fabricCanvasRef: null,
   setFabricCanvasRef: (ref) => set({ fabricCanvasRef: ref }),

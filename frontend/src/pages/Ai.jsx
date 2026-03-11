@@ -1,169 +1,153 @@
-import { useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
-import useStore from "../zustand/store";
+/**
+ * Ai.jsx — Chat history: renders the conversation between user and AI
+ */
+import React, { useEffect, useRef } from 'react'
+import { Sparkles, User } from 'lucide-react'
+import useStore from '../zustand/store'
+import T from '../assets/Theme.js'
 
-const ChatInterface = () => {
-  const { ChatHistory } = useStore();
-  const [typingMessage, setTypingMessage] = useState('');
-  const [isTyping, setIsTyping]           = useState(false);
-  const bottomRef = useRef(null);
+const Ai = () => {
+  const { ChatHistory } = useStore()
+  const bottomRef = useRef(null)
 
-  /* ── Auto-scroll ──────────────────────────────────── */
+  // Auto-scroll to latest message
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [ChatHistory, typingMessage]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [ChatHistory])
 
-  /* ── Typewriter effect on latest AI message ───────── */
-  useEffect(() => {
-    const last = ChatHistory[ChatHistory.length - 1];
-    if (last?.ai && last.ai !== '...') {
-      setIsTyping(true);
-      let i = 0;
-      setTypingMessage('');
-      const full = last.ai;
-      const iv = setInterval(() => {
-        if (i < full.length) { setTypingMessage(full.substring(0, i + 1)); i++; }
-        else { clearInterval(iv); setIsTyping(false); }
-      }, 8);
-      return () => clearInterval(iv);
-    }
-  }, [ChatHistory]);
-
-  /* ── Empty state ──────────────────────────────────── */
   if (ChatHistory.length === 0) {
     return (
       <div style={{
-        display: 'flex', flexDirection: 'column',
+        flex: 1, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        height: '100%', gap: 12,
+        gap: 10, padding: '40px 16px', textAlign: 'center',
       }}>
         <div style={{
-          width: 44, height: 44, borderRadius: 12,
-          background: 'linear-gradient(135deg, #4338ca22, #6366f122)',
-          border: '1px solid #2a2a3e',
+          width: 40, height: 40, borderRadius: 12,
+          background: `linear-gradient(135deg, ${T.accent}, ${T.accent2})`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 0 20px rgba(99,102,241,0.25)`,
         }}>
-          <Sparkles size={20} color="#4a4a7a" />
+          <Sparkles size={18} color="#fff" />
         </div>
-        <p style={{
-          color: '#3a3a58', fontSize: 12, textAlign: 'center',
-          margin: 0, lineHeight: 1.7,
-          fontFamily: "'DM Mono', monospace",
-        }}>
-          Start drawing or<br />ask me anything
-        </p>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.text, fontFamily: "'Syne', sans-serif" }}>
+          Start the conversation
+        </div>
+        <div style={{ fontSize: 11, color: T.muted, fontFamily: "'DM Mono', monospace", lineHeight: 1.6 }}>
+          Type a message or speak —{'\n'}the AI is listening.
+        </div>
       </div>
-    );
+    )
   }
 
-  /* ── Message list ─────────────────────────────────── */
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {ChatHistory.map((entry, index) => {
-        const isLast = index === ChatHistory.length - 1;
-
-        return (
-          <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-            {/* ── User bubble ── */}
-            {entry.user && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #3730a3, #4f46e5)',
-                  color: '#e8e8ff',
-                  borderRadius: '14px 14px 3px 14px',
-                  padding: '9px 13px',
-                  maxWidth: '82%',
-                  fontSize: 12.5,
-                  lineHeight: 1.6,
-                  fontFamily: "'Syne', sans-serif",
-                  boxShadow: '0 4px 16px rgba(79,70,229,0.25)',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}>
-                  {entry.user}
-                </div>
-              </div>
-            )}
-
-            {/* ── AI bubble ── */}
-            {entry.ai && (
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-
-                {/* Avatar */}
-                <div style={{
-                  width: 24, height: 24, borderRadius: 7,
-                  background: 'linear-gradient(135deg, #4338ca, #6366f1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, marginTop: 2,
-                  boxShadow: '0 0 10px rgba(99,102,241,0.3)',
-                }}>
-                  <Sparkles size={11} color="#fff" />
-                </div>
-
-                {/* Bubble */}
-                <div style={{
-                  background: '#13131f',
-                  border: '1px solid #1e1e30',
-                  color: '#c8c8e8',
-                  borderRadius: '3px 14px 14px 14px',
-                  padding: '9px 13px',
-                  maxWidth: '82%',
-                  fontSize: 12.5,
-                  lineHeight: 1.7,
-                  fontFamily: "'DM Mono', monospace",
-                  wordBreak: 'break-word',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                }}>
-                  {entry.ai === '...' ? (
-                    /* Loading dots */
-                    <div style={{ display: 'flex', gap: 5, alignItems: 'center', height: 18 }}>
-                      {[0, 160, 320].map((delay, i) => (
-                        <div key={i} style={{
-                          width: 6, height: 6, borderRadius: '50%',
-                          background: '#4f46e5',
-                          animation: 'aiDotBounce 1s ease-in-out infinite',
-                          animationDelay: `${delay}ms`,
-                        }} />
-                      ))}
-                    </div>
-                  ) : (
-                    <span>
-                      {isLast && isTyping ? typingMessage : entry.ai}
-                      {/* Blinking cursor while typing */}
-                      {isLast && isTyping && (
-                        <span style={{
-                          display: 'inline-block',
-                          width: 2, height: 12,
-                          background: '#6366f1',
-                          marginLeft: 3,
-                          verticalAlign: 'middle',
-                          animation: 'aiCursorBlink 0.7s ease-in-out infinite',
-                        }} />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
+      {ChatHistory.map((msg, i) => (
+        <Message key={msg.id || i} msg={msg} />
+      ))}
+      {/* Invisible anchor to scroll to */}
       <div ref={bottomRef} />
-
-      <style>{`
-        @keyframes aiDotBounce {
-          0%, 100% { transform: translateY(0);    opacity: 0.3; }
-          50%       { transform: translateY(-5px); opacity: 1;   }
-        }
-        @keyframes aiCursorBlink {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0; }
-        }
-      `}</style>
     </div>
-  );
-};
+  )
+}
 
-export default ChatInterface;
+const Message = ({ msg }) => {
+  const isUser = msg.role === 'user'
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: isUser ? 'row-reverse' : 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+    }}>
+
+      {/* Avatar */}
+      <div style={{
+        width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+        background: isUser
+          ? `linear-gradient(135deg, #2d2d4e, #3a3a5e)`
+          : `linear-gradient(135deg, ${T.accent}, ${T.accent2})`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: isUser ? 'none' : `0 0 10px rgba(99,102,241,0.25)`,
+        marginTop: 2,
+      }}>
+        {isUser
+          ? <User size={12} color={T.muted} />
+          : <Sparkles size={12} color="#fff" />
+        }
+      </div>
+
+      {/* Bubble */}
+      <div style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{
+          padding: '9px 12px',
+          borderRadius: isUser ? '12px 4px 12px 12px' : '4px 12px 12px 12px',
+          background: isUser ? T.surface3 : T.surface2,
+          border: `1px solid ${isUser ? T.border2 : T.border}`,
+          fontSize: 12.5,
+          lineHeight: 1.65,
+          color: msg.text === '...' ? T.muted : T.text,
+          fontFamily: "'Syne', sans-serif",
+          wordBreak: 'break-word',
+          position: 'relative',
+        }}>
+          {/* Typing indicator */}
+          {msg.text === '...' ? <TypingDots /> : msg.text}
+
+          {/* Streaming cursor */}
+          {!msg.complete && msg.role === 'assistant' && msg.text !== '...' && (
+            <span style={{
+              display: 'inline-block',
+              width: 2, height: 13,
+              background: T.accent2,
+              borderRadius: 1,
+              marginLeft: 2,
+              verticalAlign: 'middle',
+              animation: 'cursorBlink 1s ease-in-out infinite',
+            }} />
+          )}
+        </div>
+
+        {/* Timestamp */}
+        {msg.timestamp && (
+          <span style={{
+            fontSize: 9.5,
+            color: T.subtext,
+            fontFamily: "'DM Mono', monospace",
+            alignSelf: isUser ? 'flex-end' : 'flex-start',
+            paddingLeft: isUser ? 0 : 2,
+            paddingRight: isUser ? 2 : 0,
+          }}>
+            {msg.timestamp}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const TypingDots = () => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 16 }}>
+    {[0, 1, 2].map(i => (
+      <span key={i} style={{
+        width: 5, height: 5, borderRadius: '50%',
+        background: T.muted,
+        display: 'inline-block',
+        animation: `aiDotBounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+      }} />
+    ))}
+    <style>{`
+      @keyframes aiDotBounce {
+        0%, 80%, 100% { transform: translateY(0);   opacity: 0.4; }
+        40%            { transform: translateY(-5px); opacity: 1;   }
+      }
+      @keyframes cursorBlink {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0; }
+      }
+    `}</style>
+  </span>
+)
+
+export default Ai
