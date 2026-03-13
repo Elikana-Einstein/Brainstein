@@ -1,9 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
 import * as fabric from 'fabric';
 import useStore from '../zustand/store';
-
+import axios from 'axios';
+import {toast} from 'react-toastify'
 const useFabricCanvas = (canvasRef, options) => {
-  const { undoTrigger, redoTrigger, setFabricCanvasRef } = useStore();
+  const { undoTrigger, redoTrigger, setFabricCanvasRef,currentCanvasId,getSlides,currentSlide,updateSlide,updateslideId } = useStore();
   const fabricRef = useRef(null);
   const historyRef = useRef([]);
   const redoRef = useRef([]);
@@ -16,6 +17,29 @@ const useFabricCanvas = (canvasRef, options) => {
     if (historyRef.current.length > 50) historyRef.current.shift();
     redoRef.current = [];
   }, []);
+   useEffect(()=>{
+        const loadSlide = async () => {
+          const canvas = fabricRef.current;
+          if (!canvas) return;
+        
+          isRestoringRef.current = true;
+        
+          try {
+            await canvas.loadFromJSON(currentSlide);
+            canvas.renderAll();
+          
+            // reset history
+            historyRef.current = [currentSlide];
+            redoRef.current = [];
+          } finally {
+            isRestoringRef.current = false;
+          }
+        };
+        if(currentSlide){
+          loadSlide()
+        }
+    },[currentSlide])
+
   
   // 1. Initialize Canvas
   useEffect(() => {
@@ -32,6 +56,8 @@ const useFabricCanvas = (canvasRef, options) => {
     fabricRef.current = canvas;
     historyRef.current = [canvas.toObject()];
 
+    //set a slide to render it for editing and reference
+   
     // ✅ NEW: Share the canvas ref via store so Navbar can snapshot it
     setFabricCanvasRef(canvas);
 
@@ -99,16 +125,56 @@ const useFabricCanvas = (canvasRef, options) => {
     saveState();
   }, [saveState]);
 
-  // 7. Save canvas as PNG
-  const saveCanvas = useCallback(() => {
-    const canvas = fabricRef.current;
-    if (!canvas) return;
-    const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });
-    const link = document.createElement('a');
-    link.download = 'elick-canvas.png';
-    link.href = dataURL;
-    link.click();
-  }, []);
+
+  //save canvas to database
+  const saveCanvas = useCallback(async () => {
+      const canvas = fabricRef.current;
+      if (!canvas) return;
+
+      // 1️⃣ JSON representation of all objects
+      const jsonData = canvas.toJSON();
+
+      // 2️⃣ PNG image for preview
+      const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });
+
+      // Prepare payload
+      const payload = {
+        canvasId: currentCanvasId,      
+        slide:jsonData,                      // Fabric.js JSON
+        previewImage: dataURL,             // PNG as base64
+      };
+      try {
+      // Send to backend
+
+      
+      if(!updateSlide){
+       const res = await axios.post('http://localhost:3000/slide', payload);
+        if(res.status == 201){
+         toast.success(res.data.message);
+         getSlides()
+         useStore.setState({
+          updateSlide:false
+         })
+       }
+      }else{
+        
+     
+       const res = await axios.put(`http://localhost:3000/slide/${updateslideId}`, payload);
+        if(res.status == 201){
+         toast.success(res.data.message);
+         getSlides()
+         useStore.setState({
+          updateSlide:false
+         })
+       }
+
+      }
+      
+      } catch (err) {
+        console.error('Error saving canvas:', err);
+      }
+
+}, [currentCanvasId,updateSlide,updateslideId]);
 
   return { fabricRef, clearCanvas, saveCanvas };
 };

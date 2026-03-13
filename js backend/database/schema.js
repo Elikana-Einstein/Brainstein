@@ -10,6 +10,7 @@ const userSchema = new Schema({
 
 const canvasSchema = new Schema({
   canvasTitle: String,
+  aiContext: String,
   user: {
     type: Schema.Types.ObjectId,
     ref: "User",

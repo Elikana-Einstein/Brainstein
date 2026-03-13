@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Mic, MicOff, Video, VideoOff, Undo2, Redo2, MessageSquare, Wifi, WifiOff,FileArchiveIcon } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, Undo2, Redo2, MessageSquare, Wifi, WifiOff,FileArchiveIcon, LogOutIcon, LogInIcon } from 'lucide-react'
 import useStore from '../zustand/store'
 import { audioManager } from '../utilities/Audio'
 
@@ -107,7 +107,7 @@ const Navbar = () => {
   const [videoOn, setVideoOn] = useState(false)
   const [geminiReady, setGeminiReady] = useState(false)
 
-  const { openChat,connectWS, triggerRedo, triggerUndo, addChatMessage, fabricCanvasRef, ws, wsReady } = useStore()
+  const { openChat,connectWS, triggerRedo, triggerUndo, addChatMessage, fabricCanvasRef, ws, wsReady,saveDetails,loggedInn ,showLogin} = useStore()
 
   const geminiSocketRef   = useRef(null)
   const canvasIntervalRef = useRef(null)
@@ -123,6 +123,7 @@ const Navbar = () => {
   }, [ws, wsReady])
 
   useEffect(() => {
+    saveDetails()
     return () => clearInterval(canvasIntervalRef.current)
   }, [])
 
@@ -172,6 +173,33 @@ const Navbar = () => {
     clearInterval(canvasIntervalRef.current)
     canvasIntervalRef.current = null
   }
+
+  //logout
+    const logout = () => {
+  const { disconnectWS } = useStore.getState()
+
+  disconnectWS()
+  localStorage.clear()
+
+  useStore.setState({
+    logged: false,
+    id: null,
+    name: null,
+    slides: [],
+    currentCanvasId: null,
+    currentSlide: null,
+    loggedInn:false
+  })
+}
+
+const login=()=>{
+  useStore.setState({
+    showLogin:true
+    
+  })
+    console.log(12)
+
+}
 
   /* ── Mic / Video toggles ─────────────────────────── */
   const toggleMic = async (on) => {
@@ -259,6 +287,21 @@ const Navbar = () => {
           <FileArchiveIcon size={17} />
         </NavBtn>
       </Tip>
+      
+        {loggedInn?
+         <Tip label="Log out">
+        <NavBtn onClick={logout}>
+          <LogOutIcon size={17} />
+        </NavBtn>
+         </Tip>
+        :
+         <Tip label="Log in">
+        <NavBtn onClick={login}>
+          <LogInIcon size={17} />
+        </NavBtn>
+         </Tip>
+        }
+     
 
       {/* ── Connection label ── */}
       <div style={{

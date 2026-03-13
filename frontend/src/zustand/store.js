@@ -1,3 +1,5 @@
+import axios from 'axios'
+import { useEffect } from 'react'
 import { create } from 'zustand'
 
 const WS_URL = 'ws://localhost:3000/ws'
@@ -60,7 +62,7 @@ class StreamingAudioPlayer {
   reset() {
     this.nextStartAt = 0
   }
-}
+} 
 
 const player = new StreamingAudioPlayer()
 
@@ -71,7 +73,6 @@ const useStore = create((set, get) => ({
   changeBrColor: (color) => set({ b_color: color }),
   changeBrWidth: (width) => set({ b_width: width }),
   loading: false,
-  loggedIn: true,
 
   ws: null,
   wsReady: false,
@@ -89,65 +90,121 @@ const useStore = create((set, get) => ({
       console.log('[WS] Connected')
       set({ wsReady: true })
     }
+socket.onmessage = (event) => {
+  const msg = JSON.parse(event.data)
 
-    socket.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
+  switch (msg.type) {
 
-      switch (msg.type) {
-
-        // ── Each chunk: decode + schedule immediately ───────────────
-        case 'audio_chunk': {
-          const raw = msg.pcm || msg.audio
-          if (raw) player.addChunk(raw, msg.mimeType)
-          break
-        }
-
-        // ── Stream text token into chat ─────────────────────────────
-        case 'text_chunk': {
-          const history = get().ChatHistory
-          const last    = history[history.length - 1]
-          if (last && last.role === 'assistant' && !last.complete) {
-            set({
-              ChatHistory: [
-                ...history.slice(0, -1),
-                { ...last, text: last.text + msg.text },
-              ],
-            })
-          } else {
-            get().addChatMessage({
-              role:      'assistant',
-              text:      msg.text,
-              timestamp: new Date().toLocaleTimeString(),
-              complete:  false,
-            })
-          }
-          break
-        }
-
-        // ── Turn done ───────────────────────────────────────────────
-        case 'turn_complete': {
-          player.reset()
-          set({ loading: false })
-
-          const history = get().ChatHistory
-          const last    = history[history.length - 1]
-          if (last && last.role === 'assistant') {
-            set({
-              ChatHistory: [
-                ...history.slice(0, -1),
-                { ...last, complete: true },
-              ],
-            })
-          }
-          break
-        }
-
-        case 'error':
-          console.error('[WS Error]', msg.message)
-          set({ loading: false })
-          break
-      }
+    // ── Each chunk: decode + schedule immediately ───────────────
+    case 'audio_chunk': {
+      const raw = msg.pcm || msg.audio
+      if (raw) player.addChunk(raw, msg.mimeType)
+      break
     }
+
+    // ── Stream text token into chat ─────────────────────────────
+    case 'text_chunk': {
+      const history = get().ChatHistory
+      const last    = history[history.length - 1]
+      if (last && last.role === 'assistant' && !last.complete) {
+        set({
+          ChatHistory: [
+            ...history.slice(0, -1),
+            { ...last, text: last.text + msg.text },
+          ],
+        })
+      } else {
+        get().addChatMessage({
+          role:      'assistant',
+          text:      msg.text,
+          timestamp: new Date().toLocaleTimeString(),
+          complete:  false,
+        })
+      }
+      break
+    }
+
+    // ── Gemini speech transcript (streamed chunks) ──────────────
+  case 'transcript': {
+  const history = get().ChatHistory
+  const last    = history[history.length - 1]
+  if (last && last.role === 'assistant' && !last.complete) {
+    set({
+      ChatHistory: [
+        ...history.slice(0, -1),
+        { 
+          ...last, 
+          // Replace '...' placeholder, otherwise append
+          transcript: (last.text === '...' ? '' : (last.transcript || '')) + msg.text,
+          text:       last.text === '...' ? '' : last.text,
+        },
+      ],
+    })
+    console.log(msg.text,1);
+    
+  } else {
+    get().addChatMessage({
+      role:       'assistant',
+      text:       '',
+      transcript: msg.text,
+      timestamp:  new Date().toLocaleTimeString(),
+      complete:   false,
+    })
+  }
+  break
+}
+    // ── User speech transcript ──────────────────────────────────
+    case 'user_transcript': {
+      const history = get().ChatHistory
+      const last    = history[history.length - 1]
+      if (last && last.role === 'user' && !last.complete) {
+        // Append to existing user message
+        set({
+          ChatHistory: [
+            ...history.slice(0, -1),
+            { ...last, text: (last.text || '') + msg.text },
+          ],
+        })
+      } else {
+        // Start a new user message
+        get().addChatMessage({
+          role:      'user',
+          text:      msg.text,
+          timestamp: new Date().toLocaleTimeString(),
+          complete:  false,
+        })
+      }
+      break
+    }
+
+    // ── Turn done ───────────────────────────────────────────────
+   case 'turn_complete': {
+  player.reset()
+  set({ loading: false })
+
+  const history = get().ChatHistory
+  const last    = history[history.length - 1]
+  if (last && last.role === 'assistant') {
+    set({
+      ChatHistory: [
+        ...history.slice(0, -1),
+        {
+          ...last,
+          text:     last.text || last.transcript || '...',
+          complete: true,
+        },
+      ],
+    })
+  }
+  break
+}
+
+    case 'error':
+      console.error('[WS Error]', msg.message)
+      set({ loading: false })
+      break
+  }
+}
 
     socket.onclose = (e) => {
       console.log('[WS] Disconnected — reconnecting in 3s', e.code)
@@ -189,6 +246,55 @@ const useStore = create((set, get) => ({
 
   fabricCanvasRef: null,
   setFabricCanvasRef: (ref) => set({ fabricCanvasRef: ref }),
+
+  db_url:'http://localhost:3000',
+
+  logged:false,
+  setLogged:     (val)  => set({ loggedIn: val }),
+  
+  checkToken:(()=>{
+    set({logged:true})
+  }),
+
+
+  name:null,
+  id:null,
+  saveDetails:(()=>{
+    const userString  = localStorage.getItem('user')
+    if(userString){
+      const user = JSON.parse(userString);
+      set({name:user?.userName});
+      set({id:user?.userId});
+    }
+  }),
+
+  currentCanvasId:null,
+  setCurrentCanvasId:(val)=>set({currentCanvasId:val}),
+
+
+  slides:[],
+  setSlides: (slides) => set({ slides }),
+
+
+ getSlides: async () => {
+  const id = get().currentCanvasId
+  if (!id) return
+
+  const res = await axios.get(`http://localhost:3000/slides/${id}`)
+
+  set({ slides: res.data.slides })
+},
+
+  currentSlide:null,
+  setCurrentSlide:(slide)=>set({currentSlide:slide}),
+
+  loggedInn:false,
+  showLogin:false,
+
+  updateslideId:null,
+  updateSlide:false,
+
+
 }))
 
 export default useStore

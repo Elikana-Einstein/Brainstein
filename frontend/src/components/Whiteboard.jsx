@@ -101,8 +101,7 @@ const Whiteboard = () => {
   const [activeColor, setActiveColor] = useState(PALETTE[0]);
   const [activeSize, setActiveSize]   = useState(STROKE_SIZES[1]);
   const [isMounted, setIsMounted]     = useState(false);
-
-  const { setColor, setWidth } = useStore();
+  const { setColor, setWidth ,name,getSlides,currentCanvasId,updateSlide} = useStore();
 
   /* ── Responsive canvas sizing via ResizeObserver ── */
   useEffect(() => {
@@ -118,6 +117,9 @@ const Whiteboard = () => {
     return () => ro.disconnect();
   }, []);
 
+  useEffect(()=>{
+    getSlides()
+  },[currentCanvasId])
   /* ── Init Fabric hook ───────────────────────────── */
   const { fabricRef, clearCanvas, saveCanvas } = useFabricCanvas(canvasRef, {
     width: dims.width,
@@ -290,8 +292,9 @@ const Whiteboard = () => {
       <div style={S.heading}>
         <div style={S.brandRow}>
           <span style={S.brandDot} />
-          <span style={S.brandName}>Board</span>
+          <span style={S.brandName}>Brainstein</span>
           <span style={S.brandSlash}>/</span>
+          <span className='text-red-700'>{name}</span>
           <span style={S.brandSub}>Workspace</span>
         </div>
       </div>
@@ -364,10 +367,10 @@ const Whiteboard = () => {
           {/* Actions */}
           <div style={S.group}>
             <ActionBtn danger onClick={clearCanvas}>
-              <TrashSVG /><span>Clear</span>
+              <TrashSVG />
             </ActionBtn>
             <ActionBtn primary onClick={saveCanvas}>
-              <DownloadSVG /><span>Export</span>
+             {updateSlide?<span> Update </span>:<span> save</span>}
             </ActionBtn>
           </div>
         </div>

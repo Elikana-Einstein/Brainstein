@@ -3,10 +3,19 @@ import dotenv from 'dotenv'
 import { WebSocketServer } from 'ws'
 import http from 'http'
 import { GoogleGenAI, Modality, MediaResolution } from '@google/genai'
-
+import { connected } from 'process'
+import cors from 'cors'
+import { addCanvas, addSlide, deleteSlide, getCanvas, getSlides, login, signup, updateSlide } from './database/routes.js'
+import { connectDB } from './database/db_connection.js'
 dotenv.config()
 
 const app    = express()
+app.use(cors({
+  origin:'http://localhost:5173'
+}))
+
+app.use(express.json({ limit: "50mb" }))
+app.use(express.urlencoded({ limit: "50mb", extended: true }))
 const server = http.createServer(app)
 const wss    = new WebSocketServer({ server })
 const ai     = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
@@ -16,6 +25,8 @@ const MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025'
 const SESSION_CONFIG = {
   responseModalities: [Modality.AUDIO],
   mediaResolution: MediaResolution.MEDIA_RESOLUTION_MEDIUM,
+   outputAudioTranscription: {},           // ← get Gemini's text transcript
+  inputAudioTranscription: {},
   speechConfig: {
     voiceConfig: {
       prebuiltVoiceConfig: {
@@ -23,6 +34,9 @@ const SESSION_CONFIG = {
       },
     },
   },
+   systemInstruction: {
+      parts: [{ text: 'You are a helpful assistant.' }]
+    },
   // VAD — Gemini automatically detects end-of-speech and responds
   realtimeInputConfig: {
     automaticActivityDetection: {
@@ -69,7 +83,8 @@ wss.on('connection', (ws) => {
       const interval = setInterval(() => {
         while (responseQueue.length > 0) {
           const msg = responseQueue.shift()
-
+            
+            
           if (msg.serverContent?.modelTurn?.parts) {
             for (const part of msg.serverContent.modelTurn.parts) {
 
@@ -83,16 +98,32 @@ wss.on('connection', (ws) => {
                 }))
               }
 
+             
+
               // ── Stream text, skip thinking blurbs ────────────────
               if (part.text) {
                 const isThinking = part.text.trim().startsWith('**')
                 if (!isThinking) {
                   textOutput += part.text
                   ws.send(JSON.stringify({ type: 'text_chunk', text: part.text }))
+                  
                 }
               }
             }
           }
+           if (msg.serverContent?.outputTranscription) {
+                  ws.send(JSON.stringify({ 
+                    type: 'transcript', 
+                    text: msg.serverContent.outputTranscription.text 
+                  }))
+                  
+                }
+                if (msg.serverContent?.inputTranscription) {
+                  ws.send(JSON.stringify({ 
+                    type: 'user_transcript', 
+                    text: msg.serverContent.inputTranscription.text 
+                  }))
+                }
 
           if (msg.serverContent?.turnComplete) {
             clearInterval(interval)
@@ -148,34 +179,50 @@ wss.on('connection', (ws) => {
 
   // Continuously drain responseQueue for audio responses
   // (needed since audio chunks arrive outside of handleTurn for realtime audio)
-  const drainInterval = setInterval(() => {
-    while (responseQueue.length > 0) {
-      const msg = responseQueue.shift()
+ const drainInterval = setInterval(() => {
+  while (responseQueue.length > 0) {
+    const msg = responseQueue.shift()
 
-      if (msg.serverContent?.modelTurn?.parts) {
-        for (const part of msg.serverContent.modelTurn.parts) {
-          if (part.inlineData) {
-            lastMimeType = part.inlineData.mimeType || lastMimeType
-            ws.send(JSON.stringify({
-              type:     'audio_chunk',
-              pcm:      part.inlineData.data,
-              mimeType: lastMimeType,
-            }))
-          }
-          if (part.text) {
-            const isThinking = part.text.trim().startsWith('**')
-            if (!isThinking) {
-              ws.send(JSON.stringify({ type: 'text_chunk', text: part.text }))
-            }
+    if (msg.serverContent?.modelTurn?.parts) {
+      for (const part of msg.serverContent.modelTurn.parts) {
+        if (part.inlineData) {
+          lastMimeType = part.inlineData.mimeType || lastMimeType
+          ws.send(JSON.stringify({
+            type:     'audio_chunk',
+            pcm:      part.inlineData.data,
+            mimeType: lastMimeType,
+          }))
+        }
+        if (part.text) {
+          const isThinking = part.text.trim().startsWith('**')
+          if (!isThinking) {
+            ws.send(JSON.stringify({ type: 'text_chunk', text: part.text }))
           }
         }
       }
-
-      if (msg.serverContent?.turnComplete) {
-        ws.send(JSON.stringify({ type: 'turn_complete' }))
-      }
     }
-  }, 50)
+
+    // ── ADD THESE THREE BLOCKS ──────────────────────────────────
+    if (msg.serverContent?.outputTranscription) {
+      ws.send(JSON.stringify({
+        type: 'transcript',
+        text: msg.serverContent.outputTranscription.text,
+      }))
+    }
+
+    if (msg.serverContent?.inputTranscription) {
+      ws.send(JSON.stringify({
+        type: 'user_transcript',
+        text: msg.serverContent.inputTranscription.text,
+      }))
+    }
+    // ────────────────────────────────────────────────────────────
+
+    if (msg.serverContent?.turnComplete) {
+      ws.send(JSON.stringify({ type: 'turn_complete' }))
+    }
+  }
+}, 50)
 
   ws.on('close', () => {
     console.log('Client disconnected')
@@ -187,5 +234,30 @@ wss.on('connection', (ws) => {
   })
 })
 
+
+
+//routes
+app.post('/login',login);
+
+app.post('/signup',signup);
+
+app.post('/canvas',addCanvas);
+
+app.post('/slide',addSlide);
+
+app.get('/canvas/:id',getCanvas);
+
+app.get('/slides/:id',getSlides)
+
+
+app.put('/slide/:slideId',updateSlide)
+
+app.delete('/slide/:slideId',deleteSlide);
+
 const PORT = process.env.PORT || 3000
+
+
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+app.listen(PORT,(()=>{console.log(`app connected on port ${PORT}`);
+connectDB()
+}))

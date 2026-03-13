@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-
+import useStore from "../zustand/store";
+import axios from 'axios'
+import { toast } from "react-toastify";
 const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
   id: i,
   x: Math.random() * 100,
@@ -65,11 +67,9 @@ export default function AuthModal() {
   const [mode, setMode] = useState("login");
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
+  const{saveDetails,logged,setLogged,checkToken}=useStore()
   const [form, setForm] = useState({
     username: "",
-    name: "",
     email: "",
     password: "",
     confirm: "",
@@ -85,7 +85,6 @@ export default function AuthModal() {
     const e = {};
     if (mode === "signup") {
       if (!form.username.trim()) e.username = "Username required";
-      if (!form.name.trim()) e.name = "Full name required";
       if (form.password !== form.confirm) e.confirm = "Passwords don't match";
     }
     if (!form.email.includes("@")) e.email = "Invalid email";
@@ -93,19 +92,59 @@ export default function AuthModal() {
     return e;
   };
 
-  const submit = () => {
-    const e = validate();
-    if (Object.keys(e).length) {
-      setErrors(e);
-      return;
-    }
+const submit = async () => {
+  const e = validate();
+  if (Object.keys(e).length) {
+    setErrors(e);
+    return;
+  }
 
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
-    }, 1500);
-  };
+  // 1. Set loading to true IMMEDIATELY before the API calls
+  setLoading(true);
+
+  try {
+    if (mode === 'login') {
+      const result = await axios.post('http://localhost:3000/login', form);
+      
+      if (result.status === 201 || result.status === 200) {
+        const { userName, userId, token, message } = result.data;
+        toast.success(message);
+        console.log(userName,userId);
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify({ userName, userId }));
+        useStore.setState({
+          loggedInn:false
+        })
+        setLogged(true);
+        checkToken();
+        saveDetails();
+        
+        setForm({ username: "", email: "", password: "", confirm: "" });
+      } else {
+        toast.error(result.data.message || "Login failed");
+      }
+    } else {
+      // SIGNUP MODE
+      const result = await axios.post('http://localhost:3000/signup', form);
+      
+      if (result.status === 201) {
+        toast.success(result.data.message);
+        setForm({ username: "", email: "", password: "", confirm: "" });
+        // 2. Switch mode to login
+        setMode('login');
+      } else {
+        toast.error(result.data.message || "Registration failed");
+      }
+    }
+  } catch (error) {
+    // 3. Catch network errors so the button doesn't stay disabled forever
+    toast.error(error.response?.data?.message || "Something went wrong");
+  } finally {
+    // 4. Always turn off loading whether it succeeded or failed
+    setLoading(false);
+  }
+};
 
   return (
     <>
@@ -129,12 +168,7 @@ export default function AuthModal() {
         }}
       >
 
-        {success ? (
-          <div style={{ textAlign: "center" }}>
-            <h2 style={{ color: "#4dabf7" }}>Success ✓</h2>
-            <p style={{ color: "#aaa", fontSize: "12px" }}>Redirecting...</p>
-          </div>
-        ) : (
+        
           <>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "15px" }}>
               <button
@@ -176,14 +210,6 @@ export default function AuthModal() {
               />
             )}
 
-            {mode === "signup" && (
-              <InputField
-                label="Full Name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                error={errors.name}
-              />
-            )}
 
             <InputField
               label="Email"
@@ -212,7 +238,7 @@ export default function AuthModal() {
 
             <button
               onClick={submit}
-              disabled={loading}
+             // disabled={loading}
               style={{
                 width: "100%",
                 padding: "10px",
@@ -227,7 +253,6 @@ export default function AuthModal() {
               {loading ? "Loading..." : mode === "login" ? "Sign In" : "Register"}
             </button>
           </>
-        )}
       </div>
     </>
   );

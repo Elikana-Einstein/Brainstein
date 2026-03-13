@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import AuthModal from './Auth'
 import useStore from '../zustand/store'
+import axios from 'axios'
+import { toast } from 'react-toastify'
+import { Cross, X } from 'lucide-react'
 
 function EngineeringBg() {
   const canvasRef = useRef(null)
@@ -119,10 +122,12 @@ function EngineeringBg() {
 
 const WelcomeModal = () => {
   const [show, setShow]       = useState(false)
+  const [log, setLog]       = useState(false)
   const [closing, setClosing] = useState(false)
   const [topic, setTopic]     = useState('')
   const [context, setContext] = useState('')
-  const [loggedIn,setLoggedIn]=useState(true)
+  const [notloggedIn,setnotLoggedIn]=useState(false)
+  const{logged,setCurrentCanvasId,id,showLogin}=useStore()
   useEffect(() => {
     if (!localStorage.getItem('hasVisited')) setShow(true)
   }, [])
@@ -130,15 +135,43 @@ const WelcomeModal = () => {
   const checkLoggedIn=()=>{
     const token = localStorage.getItem('token')
     if(!token){
-        setLoggedIn(false)
+        setnotLoggedIn(true)
+    }else{
+      return true;
     }
   }
+  useEffect(()=>{
+    if(logged){
+      setnotLoggedIn(false)
+    }
+    
+  },[logged])
 
-  const handleClose = () => {
-    checkLoggedIn()
-   // setClosing(true)
+  const handleClose = async() => {
+    const res = checkLoggedIn()
+    if(res){
+      const response = await axios.post('http://localhost:3000/canvas',{canvasTitle:topic,context,userId:id})
+      if(response.status === 201){
+        toast.success(response.data.message)
+        setClosing(true)
+        setContext('')
+        setTopic('')
+        setCurrentCanvasId(response.data.canvasId)
+      }else{
+        toast.error(response.data.message)
+      }
+    }    
    
   }
+
+  useEffect(()=>{
+    if(log){
+      setShow(true)
+      setnotLoggedIn(true)
+      
+    }
+    
+  },[showLogin])
 
   if (!show) return null
 
@@ -283,7 +316,8 @@ const WelcomeModal = () => {
         .wm-btn:hover::after { opacity: 1; }
       `}</style>
 
-      <div className="wm-wrap">
+        <div className={`${!closing ? ' wm-wrap' : ''}`}>
+
         <div className={`wm-card${closing ? ' closing' : ''}`}>
 
          
@@ -297,10 +331,13 @@ const WelcomeModal = () => {
           <div className="wm-blob wm-blob-2" />
 
           {/* content */}
-          {!loggedIn? <AuthModal/>: <div className="wm-card-inner">
+          {notloggedIn? <AuthModal/>: <div className="wm-card-inner">
             <div className='bg-black p-6 rounded-3xl'>
+            <div className='flex justify-between'>
 
             <div className="wm-tag"><span className="wm-tag-dot" />AI Canvas</div>
+            <div><button onClick={()=>{setShow(false),setLog(true)}}><X color='red'/></button></div>
+            </div>
 
             <h1 className="wm-title">Set up your<br /><span>workspace.</span></h1>
             <p className="wm-hint">// configure your session before opening the canvas</p>

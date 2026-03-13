@@ -93,7 +93,9 @@ const Message = ({ msg }) => {
           position: 'relative',
         }}>
           {/* Typing indicator */}
-          {msg.text === '...' ? <TypingDots /> : msg.text}
+          {msg.text === '...' 
+            ? <TypingDots /> 
+            : (msg.text || msg.transcript || '')}
 
           {/* Streaming cursor */}
           {!msg.complete && msg.role === 'assistant' && msg.text !== '...' && (

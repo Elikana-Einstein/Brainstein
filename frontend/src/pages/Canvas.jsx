@@ -1,22 +1,55 @@
 /**
  * Sessions.jsx — Canvas session slides viewer
  */
-import React, { useState } from 'react'
-import { Clock, Layers, ChevronRight, Trash2 } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Clock, Layers, ChevronRight, Trash2, Pencil } from 'lucide-react'
 import T from '../assets/Theme.js'
+import useStore from '../zustand/store.js'
+import axios from 'axios'
+import { toast } from 'react-toastify'
 
 
-// Placeholder — replace with real session data from your store
-const MOCK_SESSIONS = [
-  { id: 1, title: 'Neural Network Forward Pass', slide: null, time: '2m ago',   strokes: 14 },
-  { id: 2, title: 'Backpropagation Diagram',     slide: null, time: '18m ago',  strokes: 31 },
-  { id: 3, title: 'Loss Function Sketch',        slide: null, time: '1h ago',   strokes: 8  },
-  { id: 4, title: 'Untitled Session',            slide: null, time: 'Yesterday', strokes: 5 },
-]
+
 
 const SessionCard = ({ session, onOpen, onDelete }) => {
   const [hov, setHov] = useState(false)
+  const{setCurrentSlide,updateSlide,updateslideId,getSlides}=useStore()
 
+  const handleEdit=(s)=>{
+        setCurrentSlide(s.slide)
+
+        useStore.setState({
+          updateslideId:s._id
+        })
+        console.log(updateslideId,12345);
+        
+  }
+
+  const toggleEditMode=()=>{
+    if(updateSlide){
+      useStore.setState({
+    updateSlide:false,
+    })
+    }
+    else{
+ useStore.setState({
+    updateSlide:true,
+    })
+    }
+   
+  }
+
+const deleteSlide = async (slideId) => {
+  try {
+    const res = await axios.delete(`http://localhost:3000/slide/${slideId}`);
+    if (res.status === 201) {
+      toast.success(res.data.message);
+      getSlides()
+    }
+  } catch (err) {
+    console.error('Error deleting slide:', err);
+  }
+};
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -43,7 +76,7 @@ const SessionCard = ({ session, onOpen, onDelete }) => {
         }}
       >
         {session.slide ? (
-          <img src={session.slide} alt={session.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={session.previewImage} alt={session.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <>
             {/* placeholder grid lines */}
@@ -65,7 +98,7 @@ const SessionCard = ({ session, onOpen, onDelete }) => {
             position: 'absolute', inset: 0,
             background: 'rgba(99,102,241,0.08)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          }} onClick={()=>handleEdit(session)}>
             <div style={{
               background: 'rgba(99,102,241,0.85)',
               borderRadius: 8, padding: '5px 10px',
@@ -95,13 +128,12 @@ const SessionCard = ({ session, onOpen, onDelete }) => {
               <Clock size={9} /> {session.time}
             </span>
             <span style={{ fontSize: 10, color: T.subtext, fontFamily: "'DM Mono', monospace" }}>
-              {session.strokes} strokes
+              {session.slide.objects.length} strokes
             </span>
           </div>
         </div>
-
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(session.id) }}
+          onClick={()=>deleteSlide(session._id) }
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: T.subtext, padding: 4, borderRadius: 6,
@@ -113,37 +145,73 @@ const SessionCard = ({ session, onOpen, onDelete }) => {
         >
           <Trash2 size={11} />
         </button>
+
+        <button
+          onClick={()=>toggleEditMode() }
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: T.subtext, padding: 4, borderRadius: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'color .15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+          onMouseLeave={e => e.currentTarget.style.color = T.subtext}
+        >
+          <Pencil size={11} />
+        </button>
       </div>
     </div>
   )
 }
 
 const Sessions = () => {
-  const [sessions, setSessions] = useState(MOCK_SESSIONS)
-
+const [showPrev, setShowPrev] = useState(false)
   const handleOpen   = (session) => console.log('Open session:', session.id) // replace with real nav
   const handleDelete = (id)      => setSessions(s => s.filter(x => x.id !== id))
+const[work,setWork]=useState([])
+const{id,saveDetails,setCurrentCanvasId,slides,getSlides}=useStore()
+const getWork = async () => {
+    const res = await axios.get(`http://localhost:3000/canvas/${id}`)
+    
+  setWork(res.data.canvas)
+  setCurrentCanvasId(res.data.canvas[0]._id);
+  getSlides();
+  
+    
+  }
 
+useEffect(()=>{
+  saveDetails()
+  getWork()
+},[])
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+    <div className='relative' style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
       {/* Header row */}
-      <div style={{
-        padding: '10px 12px 8px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexShrink: 0,
-      }}>
+     <div className='px-2 flex items-center justify-between'>
+
         <span style={{ fontSize: 10, color: T.muted, fontFamily: "'DM Mono', monospace", letterSpacing: '0.08em' }}>
-          {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+          {slides.length} session{slides.length !== 1 ? 's' : ''}
         </span>
+        <button onClick={()=>setShowPrev(prev=>!prev)} className='text-red-200 mt-1 bg-blue-500 rounded-lg px-2 cursor-pointer hover:bg-blue-700' style={{fontSize: 10,fontFamily: "'DM Mono', monospace", letterSpacing: '0.08em' }}>Previous work</button>
       </div>
 
+      <div className='my-2 bg-red-400 w-full h-0.5'></div>
+               {showPrev && (
+          <div
+            className="absolute left-0 top-8 w-full bg-blue-300 shadow-lg rounded-md z-50 p-3"
+          >
+            {work.map((canvas)=>(
+                <p className='bg-gray-600 py-1 px-2 cursor-pointer rounded-lg' key={canvas._id} onClick={()=>setCurrentCanvasId(canvas._id)}>{canvas.canvasTitle}</p>
+            ))}
+          </div>
+        )}
       {/* Cards */}
       <div
         className="chat-scroll"
         style={{ flex: 1, overflowY: 'auto', padding: '0 10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}
       >
-        {sessions.length === 0 ? (
+        {slides.length === 0 ? (
           <div style={{
             flex: 1, display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
@@ -158,8 +226,8 @@ const Sessions = () => {
             </span>
           </div>
         ) : (
-          sessions.map(s => (
-            <SessionCard key={s.id} session={s} onOpen={handleOpen} onDelete={handleDelete} />
+          slides.map(s => (
+            <SessionCard key={s.canvasId} session={s} onOpen={handleOpen} onDelete={handleDelete} />
           ))
         )}
       </div>
