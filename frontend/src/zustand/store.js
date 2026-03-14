@@ -149,7 +149,6 @@ socket.onmessage = (event) => {
         },
       ],
     })
-    console.log(msg.text,1);
     
   } else {
     get().addChatMessage({
@@ -273,7 +272,7 @@ socket.onmessage = (event) => {
   fabricCanvasRef: null,
   setFabricCanvasRef: (ref) => set({ fabricCanvasRef: ref }),
 
-  db_url:'http://proper-flyingfish-elikana-f71f5476.koyeb.app',
+  db_url:'https://proper-flyingfish-elikana-f71f5476.koyeb.app',
 
   logged:false,
   setLogged:     (val)  => set({ loggedIn: val }),
@@ -306,7 +305,7 @@ socket.onmessage = (event) => {
   const id = get().currentCanvasId
   if (!id) return
 
-  const res = await axios.get(`http://proper-flyingfish-elikana-f71f5476.koyeb.app/slides/${id}`)
+  const res = await axios.get(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/slides/${id}`)
 
   set({ slides: res.data.slides })
 },

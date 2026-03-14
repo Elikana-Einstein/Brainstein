@@ -41,7 +41,7 @@ const SessionCard = ({ session, onOpen, onDelete }) => {
 
 const deleteSlide = async (slideId) => {
   try {
-    const res = await axios.delete(`http://proper-flyingfish-elikana-f71f5476.koyeb.app/slide/${slideId}`);
+    const res = await axios.delete(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/slide/${slideId}`);
     if (res.status === 201) {
       toast.success(res.data.message);
       getSlides()
@@ -171,7 +171,7 @@ const [showPrev, setShowPrev] = useState(false)
 const[work,setWork]=useState([])
 const{id,saveDetails,setCurrentCanvasId,slides,getSlides}=useStore()
 const getWork = async () => {
-    const res = await axios.get(`http://proper-flyingfish-elikana-f71f5476.koyeb.app/canvas/${id}`)
+    const res = await axios.get(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/canvas/${id}`)
     
   setWork(res.data.canvas)
   setCurrentCanvasId(res.data.canvas[0]._id);

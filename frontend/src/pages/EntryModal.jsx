@@ -127,7 +127,7 @@ const WelcomeModal = () => {
   const [topic, setTopic]     = useState('')
   const [context, setContext] = useState('')
   const [notloggedIn,setnotLoggedIn]=useState(false)
-  const{logged,setCurrentCanvasId,id,showLogin}=useStore()
+  const{logged,setCurrentCanvasId,id,showLogin,ws}=useStore()
   useEffect(() => {
     if (!localStorage.getItem('hasVisited')) setShow(true)
   }, [])
@@ -150,7 +150,9 @@ const WelcomeModal = () => {
   const handleClose = async() => {
     const res = checkLoggedIn()
     if(res){
-      const response = await axios.post('http://proper-flyingfish-elikana-f71f5476.koyeb.app/canvas',{canvasTitle:topic,context,userId:id})
+      const response = await axios.post('https://proper-flyingfish-elikana-f71f5476.koyeb.app/canvas',{canvasTitle:topic,context,userId:id})
+      ws?.send(JSON.stringify({ type: 'text', text:`Dont  reply to reply this message its just a general way of preparing you what the session wil be about.Session will be about: ${context}` }))
+      
       if(response.status === 201){
         toast.success(response.data.message)
         setClosing(true)
