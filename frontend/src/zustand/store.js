@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 
-const WS_URL = 'ws://localhost:3000/ws'
+const WS_URL = 'ws://proper-flyingfish-elikana-f71f5476.koyeb.app/ws'
 
 // ── Streaming Audio Player using Web Audio API ───────────────────────────────
 // Decodes each PCM chunk and schedules it to play exactly when the previous
@@ -273,7 +273,7 @@ socket.onmessage = (event) => {
   fabricCanvasRef: null,
   setFabricCanvasRef: (ref) => set({ fabricCanvasRef: ref }),
 
-  db_url:'http://localhost:3000',
+  db_url:'http://proper-flyingfish-elikana-f71f5476.koyeb.app',
 
   logged:false,
   setLogged:     (val)  => set({ loggedIn: val }),
@@ -306,7 +306,7 @@ socket.onmessage = (event) => {
   const id = get().currentCanvasId
   if (!id) return
 
-  const res = await axios.get(`http://localhost:3000/slides/${id}`)
+  const res = await axios.get(`http://proper-flyingfish-elikana-f71f5476.koyeb.app/slides/${id}`)
 
   set({ slides: res.data.slides })
 },

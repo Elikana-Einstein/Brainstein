@@ -104,7 +104,7 @@ const submit = async () => {
 
   try {
     if (mode === 'login') {
-      const result = await axios.post('http://localhost:3000/login', form);
+      const result = await axios.post('http://proper-flyingfish-elikana-f71f5476.koyeb.app/login', form);
       
       if (result.status === 201 || result.status === 200) {
         const { userName, userId, token, message } = result.data;
@@ -126,7 +126,7 @@ const submit = async () => {
       }
     } else {
       // SIGNUP MODE
-      const result = await axios.post('http://localhost:3000/signup', form);
+      const result = await axios.post('http://proper-flyingfish-elikana-f71f5476.koyeb.app/signup', form);
       
       if (result.status === 201) {
         toast.success(result.data.message);

@@ -150,7 +150,7 @@ const WelcomeModal = () => {
   const handleClose = async() => {
     const res = checkLoggedIn()
     if(res){
-      const response = await axios.post('http://localhost:3000/canvas',{canvasTitle:topic,context,userId:id})
+      const response = await axios.post('http://proper-flyingfish-elikana-f71f5476.koyeb.app/canvas',{canvasTitle:topic,context,userId:id})
       if(response.status === 201){
         toast.success(response.data.message)
         setClosing(true)
