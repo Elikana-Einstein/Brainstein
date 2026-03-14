@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 
-const WS_URL = 'ws://proper-flyingfish-elikana-f71f5476.koyeb.app/ws'
+const WS_URL = 'wss://proper-flyingfish-elikana-f71f5476.koyeb.app/ws'
 
 // ── Streaming Audio Player using Web Audio API ───────────────────────────────
 // Decodes each PCM chunk and schedules it to play exactly when the previous
