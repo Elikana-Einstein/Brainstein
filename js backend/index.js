@@ -261,8 +261,7 @@ app.delete('/slide/:slideId',deleteSlide);
 
 const PORT = process.env.PORT || 3000
 
-
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`))
-app.listen(PORT,(()=>{console.log(`app connected on port ${PORT}`);
-connectDB()
-}))
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Unified Server running on port ${PORT}`)
+  connectDB()
+})
