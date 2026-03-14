@@ -107,7 +107,7 @@ const Navbar = () => {
   const [videoOn, setVideoOn] = useState(false)
   const [geminiReady, setGeminiReady] = useState(false)
 
-  const { openChat,connectWS, triggerRedo, triggerUndo, addChatMessage, fabricCanvasRef, ws, wsReady,saveDetails,loggedInn ,showLogin} = useStore()
+  const { openChat,connectWS, triggerRedo, triggerUndo, addChatMessage, fabricCanvasRef, ws, wsReady,saveDetails,loggedInn ,showLogin,setNavClear} = useStore()
 
   const geminiSocketRef   = useRef(null)
   const canvasIntervalRef = useRef(null)
@@ -283,7 +283,7 @@ const login=()=>{
         </NavBtn>
       </Tip>
         <Tip label="Create new canvas">
-        <NavBtn onClick={triggerRedo}>
+        <NavBtn onClick={()=>setNavClear()}>
           <FileArchiveIcon size={17} />
         </NavBtn>
       </Tip>

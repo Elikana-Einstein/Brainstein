@@ -320,6 +320,9 @@ socket.onmessage = (event) => {
   updateslideId:null,
   updateSlide:false,
 
+  navClear:0,
+  setNavClear: () => set((state) => ({ navClear: state.navClear +1 })),
+
 
 }))
 

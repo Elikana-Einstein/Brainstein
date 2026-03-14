@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useFabricCanvas from '../pages/FabricCanvas';
 import useStore from '../zustand/store';
 import * as fabric from 'fabric';
+import { toast } from 'react-toastify';
 
 /* ─── Inject Google Fonts once ─────────────────────── */
 if (typeof document !== 'undefined' && !document.getElementById('wb-fonts')) {
@@ -101,7 +102,15 @@ const Whiteboard = () => {
   const [activeColor, setActiveColor] = useState(PALETTE[0]);
   const [activeSize, setActiveSize]   = useState(STROKE_SIZES[1]);
   const [isMounted, setIsMounted]     = useState(false);
-  const { setColor, setWidth ,name,getSlides,currentCanvasId,updateSlide} = useStore();
+  const { setColor, setWidth ,name,getSlides,currentCanvasId,updateSlide,setNavClear,navClear} = useStore();
+  const isMount = useRef(false)
+
+  useEffect(()=>{
+    if(navClear>0){
+      clearCanvas()
+      toast.success("New canvas created successfully")
+    }
+  },[navClear])
 
   /* ── Responsive canvas sizing via ResizeObserver ── */
   useEffect(() => {
