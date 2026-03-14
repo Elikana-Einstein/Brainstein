@@ -166,7 +166,6 @@ wss.on('connection', (ws) => {
             mimeType: 'image/jpeg',
           },
         })
-        console.log('[Canvas] Snapshot received, size:', data.image.length)
         // and will push messages into responseQueue automatically
       }
 
