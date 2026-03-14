@@ -58,6 +58,15 @@ class StreamingAudioPlayer {
       console.error('[StreamingAudioPlayer] chunk error:', err)
     }
   }
+  stop() {
+  // Close and discard the AudioContext — kills all scheduled audio instantly
+  if (this.ctx && this.ctx.state !== 'closed') {
+    this.ctx.close()
+  }
+  // Null it out so _ensureContext creates a fresh one for next response
+  this.ctx = null
+  this.nextStartAt = 0
+}
 
   reset() {
     this.nextStartAt = 0
@@ -176,6 +185,23 @@ socket.onmessage = (event) => {
       }
       break
     }
+    case 'interrupted': {
+         player.stop()        // flush queue + stop audio
+         set({ loading: false })
+
+         // Mark the current assistant message as complete
+         const history = get().ChatHistory
+         const last    = history[history.length - 1]
+         if (last && last.role === 'assistant' && !last.complete) {
+           set({
+             ChatHistory: [
+               ...history.slice(0, -1),
+               { ...last, complete: true, text: last.text || last.transcript || '...' },
+             ],
+           })
+         }
+         break
+}
 
     // ── Turn done ───────────────────────────────────────────────
    case 'turn_complete': {
