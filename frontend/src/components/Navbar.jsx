@@ -287,7 +287,7 @@ const login=()=>{
         </NavBtn>
       </Tip>
       
-        {loggedInn?
+        {!loggedInn?
          <Tip label="Log out">
         <NavBtn onClick={logout}>
           <LogOutIcon size={17} />
