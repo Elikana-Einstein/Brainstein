@@ -62,6 +62,7 @@ const useFabricCanvas = (canvasRef, options) => {
     setFabricCanvasRef(canvas);
 
     canvas.on('path:created', saveState);
+    canvas.on('object:added',    saveState); 
     canvas.on('object:modified', saveState);
     canvas.on('object:removed', saveState);
 
