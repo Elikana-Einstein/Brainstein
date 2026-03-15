@@ -177,7 +177,7 @@ const Navbar = () => {
   //logout
     const logout = () => {
   const { disconnectWS } = useStore.getState()
-
+      
   disconnectWS()
   localStorage.clear()
 
@@ -197,7 +197,6 @@ const login=()=>{
     showLogin:true
     
   })
-    console.log(12)
 
 }
 

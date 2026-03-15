@@ -114,7 +114,7 @@ const submit = async () => {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify({ userName, userId }));
         useStore.setState({
-          loggedInn:false
+          loggedInn:true
         })
         setLogged(true);
         checkToken();
