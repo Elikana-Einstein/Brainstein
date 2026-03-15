@@ -148,7 +148,7 @@ const useFabricCanvas = (canvasRef, options) => {
 
       
       if(!updateSlide){
-       const res = await axios.post('http://proper-flyingfish-elikana-f71f5476.koyeb.app/slide', payload);
+       const res = await axios.post('https://proper-flyingfish-elikana-f71f5476.koyeb.app/slide', payload);
         if(res.status == 201){
          toast.success(res.data.message);
          getSlides()
@@ -159,7 +159,7 @@ const useFabricCanvas = (canvasRef, options) => {
       }else{
         
      
-       const res = await axios.put(`http://proper-flyingfish-elikana-f71f5476.koyeb.app/slide/${updateslideId}`, payload);
+       const res = await axios.put(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/slide/${updateslideId}`, payload);
         if(res.status == 201){
          toast.success(res.data.message);
          getSlides()
