@@ -156,6 +156,8 @@ wss.on('connection', (ws) => {
             type: 'error',
             message: `Unsupported file type: ${data.mimeType}. Please send an image (PNG, JPEG, WEBP, GIF, HEIC).`,
           }))
+          console.log('wrong message');
+          
           return
         }
 
