@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Mic, MicOff, Video, VideoOff, Undo2, Redo2, MessageSquare, Wifi, WifiOff,FileArchiveIcon, LogOutIcon, LogInIcon } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, Undo2, Redo2, MessageSquare, Wifi, WifiOff, FileArchiveIcon, LogOutIcon, LogInIcon } from 'lucide-react'
 import useStore from '../zustand/store'
 import { audioManager } from '../utilities/Audio'
 
@@ -103,11 +103,15 @@ const Div = () => (
    NAVBAR
 ══════════════════════════════════════════════════ */
 const Navbar = () => {
-  const [micOn, setMicOn]   = useState(false)
-  const [videoOn, setVideoOn] = useState(false)
+  const [micOn,    setMicOn]    = useState(false)
+  const [videoOn,  setVideoOn]  = useState(false)
   const [geminiReady, setGeminiReady] = useState(false)
 
-  const { openChat,connectWS, triggerRedo, triggerUndo, addChatMessage, fabricCanvasRef, ws, wsReady,saveDetails,loggedInn ,showLogin,setNavClear} = useStore()
+  const {
+    openChat, connectWS, triggerRedo, triggerUndo,
+    addChatMessage, fabricCanvasRef, ws, wsReady,
+    saveDetails, loggedIn, setShowLogin, setNavClear,
+  } = useStore()
 
   const geminiSocketRef   = useRef(null)
   const canvasIntervalRef = useRef(null)
@@ -117,7 +121,7 @@ const Navbar = () => {
 
   /* ── Sync with store WebSocket ─────────────────── */
   useEffect(() => {
-    connectWS();
+    connectWS()
     setGeminiReady(wsReady)
     geminiSocketRef.current = wsReady ? ws : null
   }, [ws, wsReady])
@@ -127,7 +131,7 @@ const Navbar = () => {
     return () => clearInterval(canvasIntervalRef.current)
   }, [])
 
-  /* ── AudioContext ────────────────────────────────── */
+  /* ── AudioContext ──────────────────────────────── */
   const ensureAudioContext = () => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed')
       audioCtxRef.current = new AudioContext({ sampleRate: 24000 })
@@ -156,11 +160,11 @@ const Navbar = () => {
     } catch (e) { console.error('Audio error', e); playNextAudio() }
   }
 
-  /* ── Canvas stream ───────────────────────────────── */
+  /* ── Canvas stream ─────────────────────────────── */
   const startCanvasStream = () => {
     if (canvasIntervalRef.current) return
     canvasIntervalRef.current = setInterval(() => {
-      const ws = geminiSocketRef.current
+      const ws     = geminiSocketRef.current
       const canvas = fabricCanvasRef
       if (!ws || ws.readyState !== WebSocket.OPEN || !canvas) return
       try {
@@ -169,38 +173,30 @@ const Navbar = () => {
       } catch (e) { console.error('Snapshot error', e) }
     }, 3000)
   }
+
   const stopCanvasStream = () => {
     clearInterval(canvasIntervalRef.current)
     canvasIntervalRef.current = null
   }
 
-  //logout
-    const logout = () => {
-  const { disconnectWS } = useStore.getState()
-      
-  disconnectWS()
-  localStorage.clear()
+  /* ── Auth ──────────────────────────────────────── */
+  const logout = () => {
+    const { disconnectWS } = useStore.getState()
+    disconnectWS()
+    localStorage.clear()
+    useStore.setState({
+      loggedIn:        false,
+      id:              null,
+      name:            null,
+      slides:          [],
+      currentCanvasId: null,
+      currentSlide:    null,
+    })
+  }
 
-  useStore.setState({
-    logged: false,
-    id: null,
-    name: null,
-    slides: [],
-    currentCanvasId: null,
-    currentSlide: null,
-    loggedInn:false
-  })
-}
+  const login = () => setShowLogin(true)
 
-const login=()=>{
-  useStore.setState({
-    showLogin:true
-    
-  })
-
-}
-
-  /* ── Mic / Video toggles ─────────────────────────── */
+  /* ── Mic / Video toggles ───────────────────────── */
   const toggleMic = async (on) => {
     ensureAudioContext()
     if (on) {
@@ -210,6 +206,7 @@ const login=()=>{
       audioManager.turnMicOff()
     }
   }
+
   useEffect(() => { toggleMic(micOn) }, [micOn])
   useEffect(() => {
     if (videoOn) { ensureAudioContext(); startCanvasStream() }
@@ -281,26 +278,29 @@ const login=()=>{
           <Redo2 size={17} />
         </NavBtn>
       </Tip>
-        <Tip label="Create new canvas">
-        <NavBtn onClick={()=>setNavClear()}>
+
+      <Tip label="Create new canvas">
+        <NavBtn onClick={() => setNavClear()}>
           <FileArchiveIcon size={17} />
         </NavBtn>
       </Tip>
-      
-        {!loggedInn?
-         <Tip label="Log out">
-        <NavBtn onClick={logout}>
-          <LogOutIcon size={17} />
-        </NavBtn>
-         </Tip>
-        :
-         <Tip label="Log in">
-        <NavBtn onClick={login}>
-          <LogInIcon size={17} />
-        </NavBtn>
-         </Tip>
-        }
-     
+
+      {/* ── Login / Logout ── */}
+      {loggedIn
+        ? (
+          <Tip label="Log out">
+            <NavBtn onClick={logout}>
+              <LogOutIcon size={17} />
+            </NavBtn>
+          </Tip>
+        ) : (
+          <Tip label="Log in">
+            <NavBtn onClick={login}>
+              <LogInIcon size={17} />
+            </NavBtn>
+          </Tip>
+        )
+      }
 
       {/* ── Connection label ── */}
       <div style={{
