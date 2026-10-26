@@ -1,1 +1,64 @@
 @import "tailwindcss";
+
+/* ── Dull theme tokens ─────────────────────────────── */
+@theme {
+  /* Surfaces */
+  --color-app:       #30353e;
+  --color-surface:   #1a1a1a;
+  --color-elevated:  #202020;
+  --color-hover:     #262626;
+
+  /* Borders */
+  --color-border-subtle: #222222;
+  --color-border-strong: #2e2e2e;
+
+  /* Text */
+  --color-ink:       #d4d4d4;
+  --color-ink-soft:  #a8a8a8;
+  --color-ink-muted: #707070;
+  --color-ink-faint: #4a4a4a;
+
+  /* Accents (kept vivid so they pop on dull base) */
+  --color-accent:      #34d399;
+  --color-accent-soft: #3a9d7a;
+  --color-danger:      #f87171;
+}
+
+/* ── Base ──────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background: var(--color-app);
+  color: var(--color-ink);
+}
+
+body {
+  margin: 0;
+  font-family: 'Syne', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dull scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #141414; }
+::-webkit-scrollbar-thumb {
+  background: #30353e;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover { background: #363636; }
+
+::selection {
+  background: #333333;
+  color: #f0f0f0;
+}
+
+*:focus-visible {
+  outline: 1px solid #4a4a4a;
+  outline-offset: 2px;
+}

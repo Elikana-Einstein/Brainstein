@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import useStore from '../zustand/store'
 import axios from 'axios'
 import { toast } from 'react-toastify'
+import { apiUrl } from '../api/api.js'
 
 function InputField({ label, type = 'text', value, onChange, error }) {
   const [focused, setFocused] = useState(false)
@@ -83,7 +84,7 @@ export default function AuthModal() {
     try {
       if (mode === 'login') {
         const result = await axios.post(
-          'https://proper-flyingfish-elikana-f71f5476.koyeb.app/login',
+          `${apiUrl()}/login`,
           form
         )
 
@@ -106,7 +107,7 @@ export default function AuthModal() {
 
       } else {
         const result = await axios.post(
-          'https://proper-flyingfish-elikana-f71f5476.koyeb.app/signup',
+          `${apiUrl()}/signup`,
           form
         )
 

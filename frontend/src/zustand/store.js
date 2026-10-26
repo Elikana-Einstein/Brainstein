@@ -1,8 +1,15 @@
 import axios from 'axios'
 import { useEffect } from 'react'
 import { create } from 'zustand'
+import { apiUrl } from '../api/api';
 
-const WS_URL = 'wss://proper-flyingfish-elikana-f71f5476.koyeb.app/ws'
+export const mode = import.meta.env.MODE;
+
+
+const WS_URL =
+  mode === "development"
+    ? "ws://localhost:3000/ws"
+    : "wss://proper-flyingfish-elikana-f71f5476.koyeb.app/ws";
 
 // ── Streaming Audio Player using Web Audio API ───────────────────────────────
 class StreamingAudioPlayer {
@@ -263,7 +270,6 @@ const useStore = create((set, get) => ({
   setFabricCanvasRef: (ref) => set({ fabricCanvasRef: ref }),
 
   // ── DB base URL ──────────────────────────────────────────────────────────────
-  db_url: 'https://proper-flyingfish-elikana-f71f5476.koyeb.app',
 
   // ── Auth — single source of truth ───────────────────────────────────────────
   loggedIn:    !!localStorage.getItem('token'),
@@ -298,7 +304,9 @@ const useStore = create((set, get) => ({
   getSlides: async () => {
     const id = get().currentCanvasId
     if (!id) return
-    const res = await axios.get(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/slides/${id}`)
+    const res = await axios.get(`${apiUrl()}/slides/${id}`)
+    console.log(res,102);
+    
     set({ slides: res.data.slides })
   },
 

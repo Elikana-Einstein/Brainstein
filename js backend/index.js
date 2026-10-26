@@ -4,10 +4,11 @@ import { WebSocketServer } from 'ws'
 import http from 'http'
 import { GoogleGenAI, Modality, MediaResolution } from '@google/genai'
 import cors from 'cors'
-import { addCanvas, addSlide, deleteSlide, getCanvas, getSlides, login, signup, updateSlide } from './database/routes.js'
-import { connectDB } from './database/db_connection.js'
+import { connectDB } from './database/mongoose/db_connection.js'
+import { connectPosDB } from './database/pos/db_connection.js'
+import { createTables } from './database/pos/schema.js'
 dotenv.config()
-
+import * as routes from "./database/router.js";
 const app    = express()
 app.use(cors({
   origin: '*' // This allows any website to hit your backend
@@ -18,6 +19,8 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }))
 const server = http.createServer(app)
 const wss    = new WebSocketServer({ server })
 const ai     = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+const mode = process.env.NODE_ENV
+
 
 const MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025'
 
@@ -240,26 +243,33 @@ wss.on('connection', (ws) => {
 
 
 //routes
-app.post('/login',login);
+app.post('/login',routes.login);
 
-app.post('/signup',signup);
+app.post('/signup',routes.signup);
 
-app.post('/canvas',addCanvas);
+app.post('/canvas',routes.addCanvas);
 
-app.post('/slide',addSlide);
+app.post('/slide',routes.addSlide);
 
-app.get('/canvas/:id',getCanvas);
+app.get('/canvas/:id',routes.getCanvas);
 
-app.get('/slides/:id',getSlides)
+app.get('/slides/:id',routes.getSlides)
 
 
-app.put('/slide/:slideId',updateSlide)
+app.put('/slide/:slideId',routes.updateSlide)
 
-app.delete('/slide/:slideId',deleteSlide);
+app.delete('/slide/:slideId',routes.deleteSlide);
 
 const PORT = process.env.PORT || 3000
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Unified Server running on port ${PORT}`)
+
+  if (mode == 'development'){
+    connectPosDB()
+    //createTables()
+  }else{
   connectDB()
+
+  }
 })

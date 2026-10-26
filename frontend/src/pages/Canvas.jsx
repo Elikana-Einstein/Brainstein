@@ -7,7 +7,7 @@ import T from '../assets/Theme.js'
 import useStore from '../zustand/store.js'
 import axios from 'axios'
 import { toast } from 'react-toastify'
-
+import {apiUrl} from '../api/api.js'
 
 
 
@@ -19,13 +19,13 @@ const SessionCard = ({ session, onOpen, onDelete }) => {
         setCurrentSlide(s.slide)
 
         useStore.setState({
-          updateslideId:s._id
+          updateslideId:s._id || s.id
         })
-        console.log(updateslideId,12345);
+        console.log(updateslideId,123405);
         
   }
 
-  const toggleEditMode=()=>{
+  const toggleEditMode=(s)=>{
     if(updateSlide){
       useStore.setState({
     updateSlide:false,
@@ -36,12 +36,16 @@ const SessionCard = ({ session, onOpen, onDelete }) => {
     updateSlide:true,
     })
     }
+  useStore.setState({
+          updateslideId:s._id || s.id
+        })
+        console.log(updateslideId,123405);
    
   }
 
 const deleteSlide = async (slideId) => {
   try {
-    const res = await axios.delete(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/slide/${slideId}`);
+    const res = await axios.delete(`${apiUrl()}/slide/${slideId}`);
     if (res.status === 201) {
       toast.success(res.data.message);
       getSlides()
@@ -75,8 +79,8 @@ const deleteSlide = async (slideId) => {
           position: 'relative', overflow: 'hidden',
         }}
       >
-        {session.slide ? (
-          <img src={session.previewImage} alt={session.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {session.preview_image ? (
+          <img src={session.preview_image} alt={session.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <>
             {/* placeholder grid lines */}
@@ -147,7 +151,7 @@ const deleteSlide = async (slideId) => {
         </button>
 
         <button
-          onClick={()=>toggleEditMode() }
+          onClick={()=>toggleEditMode(session) }
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: T.subtext, padding: 4, borderRadius: 6,
@@ -171,12 +175,14 @@ const [showPrev, setShowPrev] = useState(false)
 const[work,setWork]=useState([])
 const{id,saveDetails,setCurrentCanvasId,slides,getSlides}=useStore()
 const getWork = async () => {
-    const res = await axios.get(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/canvas/${id}`)
+    const res = await axios.get(`${apiUrl()}/canvas/${id}`)
+    const canvas = res.data?.canvas ?? []
+    console.log(canvas,12345);
     
-  setWork(res.data.canvas)
-  setCurrentCanvasId(res.data.canvas[0]._id);
-  getSlides();
-  
+setWork(canvas)
+setCurrentCanvasId(canvas[0]?.id || canvas[0]?._id)
+
+if (canvas[0]?.id || canvas[0]?._id != null) getSlides()
     
   }
 
@@ -202,7 +208,7 @@ useEffect(()=>{
             className="absolute left-0 top-8 w-full bg-blue-300 shadow-lg rounded-md z-50 p-3"
           >
             {work.map((canvas)=>(
-                <p className='bg-gray-600 py-1 px-2 cursor-pointer rounded-lg' key={canvas._id} onClick={()=>setCurrentCanvasId(canvas._id)}>{canvas.canvasTitle}</p>
+                <p className='bg-gray-600 py-1 px-2 cursor-pointer rounded-lg' key={canvas._id || canvas.id} onClick={()=>setCurrentCanvasId(canvas._id || canvas.id)}>{canvas.canvas_title}</p>
             ))}
           </div>
         )}
@@ -227,7 +233,7 @@ useEffect(()=>{
           </div>
         ) : (
           slides.map(s => (
-            <SessionCard key={s.canvasId} session={s} onOpen={handleOpen} onDelete={handleDelete} />
+            <SessionCard key={s.canvas_id} session={s} onOpen={handleOpen} onDelete={handleDelete} />
           ))
         )}
       </div>

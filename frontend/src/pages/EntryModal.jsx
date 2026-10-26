@@ -4,6 +4,7 @@ import useStore from '../zustand/store'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { X } from 'lucide-react'
+import { apiUrl } from '../api/api'
 
 function EngineeringBg() {
   const canvasRef = useRef(null)
@@ -153,7 +154,7 @@ const WelcomeModal = () => {
 
     try {
       const response = await axios.post(
-        'https://proper-flyingfish-elikana-f71f5476.koyeb.app/canvas',
+        `${apiUrl()}/canvas`,
         { canvasTitle: topic, context, userId: id }
       )
       ws?.send(JSON.stringify({

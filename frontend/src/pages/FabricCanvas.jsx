@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import * as fabric from 'fabric';
 import useStore from '../zustand/store';
 import axios from 'axios';
+import { apiUrl } from '../api/api';
 import {toast} from 'react-toastify'
 const useFabricCanvas = (canvasRef, options) => {
   const { undoTrigger, redoTrigger, setFabricCanvasRef,currentCanvasId,getSlides,currentSlide,updateSlide,updateslideId } = useStore();
@@ -17,29 +18,7 @@ const useFabricCanvas = (canvasRef, options) => {
     if (historyRef.current.length > 50) historyRef.current.shift();
     redoRef.current = [];
   }, []);
-   useEffect(()=>{
-        const loadSlide = async () => {
-          const canvas = fabricRef.current;
-          if (!canvas) return;
-        
-          isRestoringRef.current = true;
-        
-          try {
-            await canvas.loadFromJSON(currentSlide);
-            canvas.renderAll();
-          
-            // reset history
-            historyRef.current = [currentSlide];
-            redoRef.current = [];
-          } finally {
-            isRestoringRef.current = false;
-          }
-        };
-        if(currentSlide){
-          loadSlide()
-        }
-    },[currentSlide])
-
+   
   
   // 1. Initialize Canvas
   useEffect(() => {
@@ -71,6 +50,30 @@ const useFabricCanvas = (canvasRef, options) => {
       canvas.dispose();
     };
   }, [canvasRef]);
+
+  useEffect(()=>{
+        const loadSlide = async () => {
+          const canvas = fabricRef.current;
+          if (!canvas) return;
+        
+          isRestoringRef.current = true;
+        
+          try {
+            await canvas.loadFromJSON(currentSlide);
+            canvas.renderAll();
+          
+            // reset history
+            historyRef.current = [currentSlide];
+            redoRef.current = [];
+          } finally {
+            isRestoringRef.current = false;
+          }
+        };
+        if(currentSlide){
+          loadSlide()
+        }
+    },[currentSlide])
+
 
   // 2. Undo
   const undo = useCallback(async () => {
@@ -149,7 +152,7 @@ const useFabricCanvas = (canvasRef, options) => {
 
       
       if(!updateSlide){
-       const res = await axios.post('https://proper-flyingfish-elikana-f71f5476.koyeb.app/slide', payload);
+       const res = await axios.post(`${apiUrl()}/slide`, payload);
         if(res.status == 201){
          toast.success(res.data.message);
          getSlides()
@@ -160,7 +163,7 @@ const useFabricCanvas = (canvasRef, options) => {
       }else{
         
      
-       const res = await axios.put(`https://proper-flyingfish-elikana-f71f5476.koyeb.app/slide/${updateslideId}`, payload);
+       const res = await axios.put(`${apiUrl()}/slide/${updateslideId}`, payload);
         if(res.status == 201){
          toast.success(res.data.message);
          getSlides()
