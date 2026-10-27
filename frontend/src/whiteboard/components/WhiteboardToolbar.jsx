@@ -1,10 +1,10 @@
-
 import React, { useState } from "react";
 import {
   WHITEBOARD_PALETTE,
   STROKE_SIZES,
   WHITEBOARD_TOOLS,
 } from "../hooks/whiteboard.constants.js";
+import { FlowShapeIcon } from "../hooks/toolHelper.jsx";
 
 // Tool icons
 function PenSVG() {
@@ -45,24 +45,6 @@ function LineSVG() {
   );
 }
 
-function TextSVG() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="currentColor">
-      <path d="M3 4.5h14v2H11.5v9h-3v-9H3v-2z" />
-    </svg>
-  );
-}
-
-function EraserSVG() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="none"
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
-      strokeLinejoin="round">
-      <path d="M3 17l3.5-3.5L14.5 5l3 3-8 8L7 17H3z" />
-      <path d="M11.5 6.5l2 2" />
-    </svg>
-  );
-}
 
 function TrashSVG() {
   return (
@@ -86,15 +68,42 @@ function MousePointer2() {
   );
 }
 
+function MoreShapesSVG() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 20 20" fill="none"
+      stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="6" height="6" rx="1" />
+      <path d="M13 2.5h4.5V7H13z" />
+      <circle cx="5.5" cy="14.5" r="3" />
+      <path d="M13 12h4.5M15.25 9.75v4.5" />
+    </svg>
+  );
+}
+
 const TOOL_ICONS = {
   pen: PenSVG,
   rect: RectSVG,
   circle: CircleSVG,
   line: LineSVG,
-  text: TextSVG,
-  eraser: EraserSVG,
   select: MousePointer2,
 };
+
+// These IDs must match the IDs handled in useWhiteboardTools.js.
+const MORE_SHAPES = [
+  { id: "terminator", label: "Terminator" },
+  { id: "decision", label: "Decision" },
+  { id: "inputOutput", label: "Input / Output" },
+  { id: "document", label: "Document" },
+  { id: "database", label: "Database" },
+  { id: "predefinedProcess", label: "Predefined Process" },
+  { id: "manualInput", label: "Manual Input" },
+  { id: "connector", label: "Connector" },
+  { id: "arrow", label: "Arrow" },
+  { id: "eraser", label: "Eraser" },
+  { id: "text", label: "Text" },
+];
+
 export default function WhiteboardToolbar({
   activeTool,
   onToolChange,
@@ -127,6 +136,12 @@ export default function WhiteboardToolbar({
             </ToolButton>
           );
         })}
+
+        <MoreShapesDropdown
+          activeTool={activeTool}
+          onToolChange={onToolChange}
+          S={S}
+        />
       </div>
 
       <Divider />
@@ -149,9 +164,8 @@ export default function WhiteboardToolbar({
                   ? "2.5px solid #fff"
                   : "2.5px solid transparent",
               outlineOffset: "2px",
-              transform:
-                activeColor === hex ? "scale(1.22)" : "scale(1)",
-                margin: activeColor === hex ? '2px 4px 2px 4px': '',
+              transform: activeColor === hex ? "scale(1.22)" : "scale(1)",
+              margin: activeColor === hex ? "2px 4px" : "",
             }}
           />
         ))}
@@ -184,7 +198,7 @@ export default function WhiteboardToolbar({
                   borderRadius: "50%",
                   width: px,
                   height: px,
-                  border: '1px solid white',
+                  border: "1px solid white",
                   background: active ? "#fff" : activeColor,
                   transition: "background .2s",
                 }}
@@ -203,9 +217,102 @@ export default function WhiteboardToolbar({
         </ActionBtn>
 
         <ActionBtn primary onClick={onSave} S={S}>
-          {isUpdating ? "Update" : "save"}
+          {isUpdating ? "Update" : "Save"}
         </ActionBtn>
       </div>
+    </div>
+  );
+}
+function MoreShapesDropdown({ activeTool, onToolChange, S }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div
+      style={{ position: "relative" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        title="More Shapes"
+        aria-label="More Shapes"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((previous) => !previous)}
+        style={{
+          ...S.toolBtn,
+          ...(MORE_SHAPES.some(({ id }) => id === activeTool)
+            ? S.toolBtnOn
+            : {}),
+        }}
+      >
+        <MoreShapesSVG />
+        <span style={S.tlabel}>More Shapes</span>
+        <span style={{ fontSize: 10, marginLeft: 3 }}>▾</span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="More flowchart shapes"
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            zIndex: 1000,
+            minWidth: 205,
+            padding: 6,
+            marginTop: 4,
+            background: "#151521",
+            border: "1px solid #303044",
+            borderRadius: 8,
+            boxShadow: "0 8px 24px rgba(0,0,0,.35)",
+          }}
+        >
+          {MORE_SHAPES.map(({ id, label }) => {
+            const active = activeTool === id;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                role="menuitem"
+                aria-pressed={active}
+                onClick={() => {
+                  onToolChange(id);
+                  setOpen(false);
+                }}
+                onMouseEnter={(event) => {
+                  if (!active) {
+                    event.currentTarget.style.background = "#262638";
+                  }
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.background = active
+                    ? "#373752"
+                    : "transparent";
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  width: "100%",
+                  padding: "9px 10px",
+                  borderRadius: 5,
+                  textAlign: "left",
+                  color: active ? "#fff" : "#d1d1df",
+                  background: active ? "#373752" : "transparent",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+              >
+                <FlowShapeIcon type={id} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

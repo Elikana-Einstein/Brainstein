@@ -17,8 +17,6 @@ export const WHITEBOARD_TOOLS = [
   { id: "rect", label: "Rectangle" },
   { id: "circle", label: "Circle" },
   { id: "line", label: "Line" },
-  { id: "text", label: "Text" },
-  { id: "eraser", label: "Eraser" },
   { id: "select", label: "select" },
 ];
 
@@ -42,5 +40,3 @@ export const CANVAS_SIZE_LIMITS = {
   maxHeight: 700,
   viewportHeightRatio: 0.8,
 };
-
-

@@ -233,6 +233,44 @@ canvas.dispose();
   setZoomLevel(1);
 }, []);
 
+useEffect(() => {
+  const handleDeleteKey = (e) => {
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+    // Don't delete shapes while typing
+    const target = e.target;
+
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target?.isContentEditable
+    ) {
+      return;
+    }
+
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+
+    const activeObjects = canvas.getActiveObjects();
+
+    if (activeObjects.length === 0) return;
+
+    e.preventDefault();
+
+    activeObjects.forEach((object) => {
+      canvas.remove(object);
+    });
+
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  };
+
+  window.addEventListener("keydown", handleDeleteKey);
+
+  return () => {
+    window.removeEventListener("keydown", handleDeleteKey);
+  };
+}, []);
   // 4. Trigger listeners
   useEffect(() => { if (undoTrigger > 0) undo(); }, [undoTrigger, undo]);
   useEffect(() => { if (redoTrigger > 0) redo(); }, [redoTrigger, redo]);
