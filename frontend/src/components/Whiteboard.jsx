@@ -52,7 +52,7 @@ const Whiteboard = () => {
     getSlides()
   },[currentCanvasId])
   /* ── Init Fabric hook ───────────────────────────── */
-  const { fabricRef, clearCanvas, saveCanvas,saveState  } = useFabricCanvas(canvasRef, {
+  const { fabricRef, clearCanvas, saveCanvas,saveState ,zoomLevel,resetZoom, isPanningRef} = useFabricCanvas(canvasRef, {
     width: dims.width,
     height: dims.height,
     brushColor: activeColor,
@@ -76,7 +76,8 @@ useWhiteboardTools(
   activeTool,
   activeColor,
   activeSize,
-  saveState
+  saveState,
+  isPanningRef
 );
   const handleColor = (c) => { setActiveColor(c); setColor?.(c); };
   const handleSize  = (s) => { setActiveSize(s);  setWidth?.(s); };
@@ -133,6 +134,8 @@ useWhiteboardTools(
         <WhiteboardStatusBar
           activeTool={activeTool}
           activeColor={activeColor}
+          zoomLevel={zoomLevel}
+          resetZoom={resetZoom}
           width={dims.width}
           height={dims.height}
           toolLabel={

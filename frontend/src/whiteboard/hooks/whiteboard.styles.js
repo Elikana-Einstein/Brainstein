@@ -257,7 +257,7 @@ statusBar: {
   justifyContent: 'space-between',
   flexWrap: 'wrap',
   gap: 10,
-  padding: '9px 16px',
+  padding: '9px 9px',
   background: 'linear-gradient(180deg, #10101a 0%, #0c0c15 100%)',
   borderTop: '1px solid #252537',
   minHeight: 38,

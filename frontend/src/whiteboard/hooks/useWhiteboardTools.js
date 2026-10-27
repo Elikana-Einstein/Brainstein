@@ -7,7 +7,8 @@ export default function useWhiteboardTools(
   activeTool,
   activeColor,
   activeSize,
-  saveState
+  saveState,
+  isPanningRef
 ) {
   const applyTool = useCallback(() => {
     const canvas = fabricRef?.current;
@@ -115,6 +116,22 @@ handlers.push([
 ]);
  
 
+
+if (activeTool === "select") {
+  const onDoubleClick = (event) => {
+    const target = event.target;
+
+    if (target && target.isType("i-text", "text", "textbox")) {
+      canvas.setActiveObject(target);
+      target.enterEditing();
+      canvas.requestRenderAll();
+    }
+  };
+
+  on("mouse:dblclick", onDoubleClick);
+}
+
+
   canvas.freeDrawingBrush = eraser;
   canvas.isDrawingMode = true;
   canvas.defaultCursor = "cell";
@@ -123,6 +140,7 @@ handlers.push([
 
     if (["rect", "circle", "line"].includes(activeTool)) {
       const onMouseDown = (event) => {
+        if (isPanningRef?.current) return;
         const point = event.scenePoint;
 
         if (!point) return;
@@ -227,32 +245,37 @@ handlers.push([
       on("mouse:up", onMouseUp);
     }
 
-    if (activeTool === "text") {
-      const onMouseDown = (event) => {
-        const point = event.scenePoint;
+if (activeTool === "text") {
+  const onMouseDown = (event) => {
+    const point = event.scenePoint;
+    if (!point) return;
 
-        if (!point) return;
-
-        const text = new fabric.IText("Type here…", {
-          left: point.x,
-          top: point.y,
-          fontSize: Math.max(activeSize * 3 + 12, 18),
-          fill: activeColor,
-          fontFamily: "DM Mono, monospace",
-          selectable: true,
-          editable: true,
-        });
-
-        canvas.add(text);
-        canvas.setActiveObject(text);
-        text.enterEditing();
-        text.selectAll();
-
-        canvas.requestRenderAll();
-      };
-
-      on("mouse:down", onMouseDown);
+    // Avoid creating another text object when clicking existing text.
+    if (event.target?.isType?.("i-text", "text", "textbox")) {
+      return;
     }
+
+    const text = new fabric.IText("", {
+      left: point.x,
+      top: point.y,
+      fontSize: Math.max(activeSize * 3 + 12, 18),
+      fill: activeColor,
+      fontFamily: "DM Mono, monospace",
+      selectable: true,
+      evented: true,
+      editable: true,
+      objectCaching: false,
+    });
+
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    text.enterEditing();
+    canvas.requestRenderAll();
+  };
+
+  on("mouse:down", onMouseDown);
+}
+
 
     canvas.requestRenderAll();
 
