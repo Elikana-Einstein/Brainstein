@@ -19,6 +19,7 @@ export const WHITEBOARD_TOOLS = [
   { id: "line", label: "Line" },
   { id: "text", label: "Text" },
   { id: "eraser", label: "Eraser" },
+  { id: "select", label: "select" },
 ];
 
 export const TOOL_HINTS = {
@@ -28,17 +29,18 @@ export const TOOL_HINTS = {
   line: "Click and drag to draw a line",
   text: "Click anywhere to place text",
   eraser: "Click and drag to erase",
+  select: "Click and select to manipulate",
 };
 
 export const DEFAULT_CANVAS_SIZE = {
   width: 800,
-  height: 520,
+  height: 700,
 };
 
 export const CANVAS_SIZE_LIMITS = {
   minHeight: 360,
   maxHeight: 700,
-  viewportHeightRatio: 0.65,
+  viewportHeightRatio: 0.8,
 };
 
 

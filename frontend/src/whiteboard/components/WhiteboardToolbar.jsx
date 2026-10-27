@@ -76,6 +76,16 @@ function TrashSVG() {
   );
 }
 
+function MousePointer2() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 2l11 7-5 1.5L8 16z" />
+    </svg>
+  );
+}
+
 const TOOL_ICONS = {
   pen: PenSVG,
   rect: RectSVG,
@@ -83,8 +93,8 @@ const TOOL_ICONS = {
   line: LineSVG,
   text: TextSVG,
   eraser: EraserSVG,
+  select: MousePointer2,
 };
-
 export default function WhiteboardToolbar({
   activeTool,
   onToolChange,

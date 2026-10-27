@@ -8,7 +8,7 @@ import 'react-toastify/dist/ReactToastify.css'
 
 function App() {
   return (
-    <div className="min-h-screen p-8 flex bg-app">
+    <div className=" flex bg-app">
       <Navbar />
       <Whiteboard />
       <Panel />
@@ -20,7 +20,6 @@ function App() {
         newestOnTop
         closeOnClick
         pauseOnHover
-        theme="dark"                // ← important: match the dull look
       />
     </div>
   )

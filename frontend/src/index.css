@@ -3,7 +3,7 @@
 /* ── Dull theme tokens ─────────────────────────────── */
 @theme {
   /* Surfaces */
-  --color-app:       #30353e;
+  --color-app:       #777879;
   --color-surface:   #1a1a1a;
   --color-elevated:  #202020;
   --color-hover:     #262626;
@@ -48,7 +48,7 @@ body {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: #141414; }
 ::-webkit-scrollbar-thumb {
-  background: #30353e;
+  background: #777879;
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover { background: #363636; }

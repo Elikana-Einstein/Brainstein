@@ -52,7 +52,7 @@ const Whiteboard = () => {
     getSlides()
   },[currentCanvasId])
   /* ── Init Fabric hook ───────────────────────────── */
-  const { fabricRef, clearCanvas, saveCanvas } = useFabricCanvas(canvasRef, {
+  const { fabricRef, clearCanvas, saveCanvas,saveState  } = useFabricCanvas(canvasRef, {
     width: dims.width,
     height: dims.height,
     brushColor: activeColor,
@@ -71,7 +71,13 @@ const Whiteboard = () => {
   }, [dims]);
 
 /* ── Apply tool logic to Fabric canvas ─────────── */
-useWhiteboardTools(fabricRef,activeTool,activeColor,activeSize);
+useWhiteboardTools(
+  fabricRef,
+  activeTool,
+  activeColor,
+  activeSize,
+  saveState
+);
   const handleColor = (c) => { setActiveColor(c); setColor?.(c); };
   const handleSize  = (s) => { setActiveSize(s);  setWidth?.(s); };
   const hintText = {
@@ -119,7 +125,7 @@ useWhiteboardTools(fabricRef,activeTool,activeColor,activeSize);
 
         {/* ══ CANVAS ══ */}
         <div ref={wrapRef} style={S.canvasWrap}>
-          <canvas ref={canvasRef} style={{ display: 'block' , maxWidth: '100%'}} />
+          <canvas ref={canvasRef} style={{ display: 'block' , maxWidth: '100%', height:'100%'}} />
           <span style={S.hint}>{hintText}</span>
         </div>
 

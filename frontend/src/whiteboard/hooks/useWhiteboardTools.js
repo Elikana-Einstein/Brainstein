@@ -1,17 +1,22 @@
 
 import { useCallback, useEffect } from "react";
 import * as fabric from "fabric";
-
+import { EraserBrush } from "@erase2d/fabric";
 export default function useWhiteboardTools(
   fabricRef,
   activeTool,
   activeColor,
-  activeSize
+  activeSize,
+  saveState
 ) {
   const applyTool = useCallback(() => {
     const canvas = fabricRef?.current;
 
     if (!canvas || canvas.disposed) return undefined;
+    const isPenStroke = (object) => {
+  return object?.type === "path";
+};
+
 
     // Stop drawing with the previous tool.
     canvas.isDrawingMode = false;
@@ -21,6 +26,8 @@ export default function useWhiteboardTools(
     let startX = 0;
     let startY = 0;
     let currentShape = null;
+    let isErasing = false;
+    let hasErased = false;
 
     const on = (eventName, handler) => {
       canvas.on(eventName, handler);
@@ -28,33 +35,91 @@ export default function useWhiteboardTools(
     };
 
     const stopDrawing = () => {
-      isDrawingShape = false;
-      currentShape = null;
+        isDrawingShape = false;
+        currentShape = null;
+        isErasing = false;
     };
+const selectionTools = ["select"];
+const isSelectTool = selectionTools.includes(activeTool);
 
-    canvas.selection = !["rect", "circle", "line", "text"].includes(
-      activeTool
-    );
+canvas.selection = isSelectTool;
+canvas.controlsAboveOverlay = true;
+canvas.uniformScaling = false;
+canvas.skipTargetFind = !isSelectTool;
 
-    canvas.defaultCursor =
-      activeTool === "text" ? "text" : "crosshair";
+canvas.defaultCursor =
+  activeTool === "select"
+    ? "default"
+    : activeTool === "text"
+      ? "text"
+      : activeTool === "eraser"
+        ? "cell"
+        : "crosshair";
+if (isSelectTool) {
+  canvas.getObjects().forEach((object) => {
+    object.set({
+      selectable: true,
+      evented: true,
+    });
+  });
+}
+if (activeTool === "pen") {
+  const brush = new fabric.PencilBrush(canvas);
 
-    if (activeTool === "pen" || activeTool === "eraser") {
-      const brush = new fabric.PencilBrush(canvas);
+  brush.color = activeColor;
+  brush.width = activeSize;
+  brush.strokeLineCap = "round";
+  brush.strokeLineJoin = "round";
 
-      brush.color =
-        activeTool === "eraser" ? "#ffffff" : activeColor;
+  canvas.freeDrawingBrush = brush;
+  canvas.isDrawingMode = true;
+}
 
-      brush.width =
-        activeTool === "eraser" ? activeSize * 4 : activeSize;
+if (activeTool === "eraser") {
+  // Only freehand pen paths can be erased.
+  const isPenStroke = (object) => object?.type === "path";
 
-      canvas.freeDrawingBrush = brush;
-      canvas.isDrawingMode = true;
+  canvas.getObjects().forEach((object) => {
+    object.set("erasable", isPenStroke(object));
+  });
 
-      if (activeTool === "eraser") {
-        canvas.defaultCursor = "cell";
+  const eraser = new EraserBrush(canvas);
+  eraser.width = activeSize * 4;
+
+  const onEraseEnd = async (event) => {
+    // Commit the erase ourselves so we can save one history state.
+    event.preventDefault();
+
+    try {
+      const { path, targets } = event.detail;
+
+      if (targets?.length) {
+        await eraser.commit({ path, targets });
+        saveState();
       }
+    } catch (error) {
+      console.error("Failed to commit erasing:", error);
     }
+  };
+
+ 
+  const disposeEraserEnd = eraser.on("end", onEraseEnd);
+
+handlers.push([
+  "eraser:cleanup",
+  () => {
+    if (typeof disposeEraserEnd === "function") {
+      disposeEraserEnd();
+    }
+  },
+]);
+ 
+
+  canvas.freeDrawingBrush = eraser;
+  canvas.isDrawingMode = true;
+  canvas.defaultCursor = "cell";
+  canvas.selection = false;
+}
 
     if (["rect", "circle", "line"].includes(activeTool)) {
       const onMouseDown = (event) => {
@@ -67,12 +132,14 @@ export default function useWhiteboardTools(
         startY = point.y;
 
         const commonOptions = {
-          stroke: activeColor,
-          strokeWidth: activeSize,
-          fill: "transparent",
-          selectable: false,
-          evented: false,
-        };
+               stroke: activeColor,
+               strokeWidth: activeSize,
+               strokeUniform: true,
+               fill: "transparent",
+               selectable: true,
+               evented: true,
+               objectCaching: false,
+            };
 
         if (activeTool === "rect") {
           currentShape = new fabric.Rect({
@@ -91,16 +158,23 @@ export default function useWhiteboardTools(
             ry: 0,
           });
         } else {
-          currentShape = new fabric.Line(
-            [startX, startY, startX, startY],
-            {
-              stroke: activeColor,
-              strokeWidth: activeSize,
-              strokeLineCap: "round",
-              selectable: false,
-              evented: false,
-            }
-          );
+          currentShape = new fabric.Polyline(
+  [
+    { x: startX, y: startY },
+    { x: startX, y: startY },
+  ],
+  {
+    fill: "transparent",
+    stroke: activeColor,
+    strokeWidth: activeSize,
+    strokeLineCap: "round",
+    strokeLineJoin: "round",
+    strokeUniform: true,
+    selectable: true,
+    evented: true,
+    objectCaching: false,
+  }
+);
         }
 
         canvas.add(currentShape);
@@ -132,11 +206,13 @@ export default function useWhiteboardTools(
             ry: Math.abs(height) / 2,
           });
         } else {
-          currentShape.set({
-            x2: point.x,
-            y2: point.y,
-          });
-        }
+  currentShape.set({
+    points: [
+      { x: startX, y: startY },
+      { x: point.x, y: point.y },
+    ],
+  });
+}
 
         currentShape.setCoords();
         canvas.requestRenderAll();
@@ -183,12 +259,16 @@ export default function useWhiteboardTools(
     // Remove only the listeners installed by this hook.
     return () => {
       handlers.forEach(([eventName, handler]) => {
-        canvas.off(eventName, handler);
-      });
+  if (eventName === "eraser:cleanup") {
+    handler();
+  } else {
+    canvas.off(eventName, handler);
+  }
+});
 
       stopDrawing();
     };
-  }, [fabricRef, activeTool, activeColor, activeSize]);
+    }, [fabricRef, activeTool, activeColor, activeSize, saveState]);
 
   useEffect(() => {
     return applyTool();

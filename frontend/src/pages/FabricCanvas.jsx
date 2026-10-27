@@ -180,7 +180,7 @@ const useFabricCanvas = (canvasRef, options) => {
 
 }, [currentCanvasId,updateSlide,updateslideId]);
 
-  return { fabricRef, clearCanvas, saveCanvas };
+  return { fabricRef, clearCanvas, saveCanvas, saveState };
 };
 
 export default useFabricCanvas;

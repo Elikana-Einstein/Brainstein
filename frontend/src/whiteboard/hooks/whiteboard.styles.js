@@ -227,16 +227,16 @@ actBtnPriHov: {
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
 },
-
 canvasWrap: {
-  width: '100%',
+  position: "relative",
+  width: "100%",
+  height: "100%",
+  maxWidth: "100%",
+  maxHeight: "100%",
   minWidth: 0,
-  position: 'relative',
-  background: '#ffffff',
-  lineHeight: 0,
-  cursor: 'crosshair',
-  overflow: 'hidden',
-  height:'100%'
+  minHeight: 0,
+  overflow: "hidden",
+
 },
 
 hint: {
