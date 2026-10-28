@@ -177,7 +177,7 @@ const{id,saveDetails,setCurrentCanvasId,slides,getSlides}=useStore()
 const getWork = async () => {
     const res = await axios.get(`${apiUrl()}/canvas/${id}`)
     const canvas = res.data?.canvas ?? []
-    console.log(canvas,12345);
+    console.table(canvas,12345);
     
 setWork(canvas)
 setCurrentCanvasId(canvas[0]?.id || canvas[0]?._id)
@@ -233,7 +233,7 @@ useEffect(()=>{
           </div>
         ) : (
           slides.map(s => (
-            <SessionCard key={s.canvas_id} session={s} onOpen={handleOpen} onDelete={handleDelete} />
+            <SessionCard key={s.id} session={s} onOpen={handleOpen} onDelete={handleDelete} />
           ))
         )}
       </div>

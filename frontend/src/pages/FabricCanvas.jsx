@@ -302,7 +302,7 @@ useEffect(() => {
       if (!canvas) return;
 
       // 1️⃣ JSON representation of all objects
-      const jsonData = canvas.toJSON();
+      const jsonData = canvas.toObject(["id", "kind", "labelOf", "fromId", "toId"]);
 
       // 2️⃣ PNG image for preview
       const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });

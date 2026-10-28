@@ -86,6 +86,23 @@ const useStore = create((set, get) => ({
   // ── Loading ─────────────────────────────────────────────────────────────────
   loading: false,
   setLoading: (val) => set({ loading: val }),
+  canvasActionHandler: null,
+
+  setCanvasActionHandler: (handler) => set({ canvasActionHandler: handler }),
+  
+
+  // Send messages through the existing WebSocket connection
+  sendWS: (payload) => {
+    const socket = get().ws;
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error('[WS] Cannot send: WebSocket is not connected');
+      return false;
+    }
+
+    socket.send(JSON.stringify(payload));
+    return true;
+  },
 
   // ── WebSocket ────────────────────────────────────────────────────────────────
   ws: null,
@@ -115,6 +132,26 @@ const useStore = create((set, get) => ({
           if (raw) player.addChunk(raw, msg.mimeType)
           break
         }
+
+       case "canvas_action": {
+  console.log("[WS] Received canvas_action:", msg.action);
+
+  const handler = get().canvasActionHandler;
+
+  if (handler) {
+    console.log("[WS] Canvas handler found");
+    try {
+      const result = handler(msg.action);
+      console.log("[WS] Handler returned:", result);
+    } catch (error) {
+      console.error("[WS] Canvas handler failed:", error);
+    }
+  } else {
+    console.error("[WS] No canvas action handler registered");
+  }
+
+  break;
+}
 
         case 'text_chunk': {
           const history = get().ChatHistory

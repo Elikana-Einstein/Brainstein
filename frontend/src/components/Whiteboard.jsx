@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import useFabricCanvas from '../pages/FabricCanvas';
 import useStore from '../zustand/store';
 import { toast } from 'react-toastify';
+import { Rect, Circle } from 'fabric';
 import useWhiteboardDimensions from "../whiteboard/hooks/useWhiteboardDimensions.js";
 /* ─── Inject Google Fonts once ─────────────────────── */
 if (typeof document !== 'undefined' && !document.getElementById('wb-fonts')) {
@@ -22,6 +23,7 @@ import useWhiteboardTools from '../whiteboard/hooks/useWhiteboardTools.js';
 import WhiteboardToolbar from '../whiteboard/components/WhiteboardToolbar.jsx';
 import WhiteboardStatusBar from '../whiteboard/components/WhiteboardStatusBar.jsx';
 import S from '../whiteboard/hooks/whiteboard.styles.js';
+import { handleCanvasAction } from '../whiteboard/hooks/mcp.js';
 
 
 
@@ -60,6 +62,19 @@ const Whiteboard = () => {
   });
 
   useEffect(() => { setIsMounted(true); }, []);
+
+const setCanvasActionHandler = useStore(
+  (state) => state.setCanvasActionHandler
+);
+const sendWS = useStore((state) => state.sendWS);
+
+ 
+useEffect(() => {
+  setCanvasActionHandler((action) =>
+    handleCanvasAction(action, fabricRef, saveState, sendWS)
+  );
+  return () => setCanvasActionHandler(null);
+}, [fabricRef, saveState, sendWS, setCanvasActionHandler]);
 
   /* ── Keep canvas dimensions in sync (Fabric v6) ─── */
   useEffect(() => {
